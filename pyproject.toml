@@ -1,0 +1,18 @@
+[project]
+name = "nhp-functional-area-mapping"
+version = "0.1.0"
+description = "Code for mapping results from NHP demand model runs to functional areas, for conversion to capacity"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-data-tables>=12.7.0",
+    "azure-identity>=1.25.1",
+    "dotenv>=0.9.9",
+]
+
+[build-system]
+requires = ["setuptools>=80", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
