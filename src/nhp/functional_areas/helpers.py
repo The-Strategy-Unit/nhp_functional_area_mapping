@@ -1,6 +1,11 @@
 import os
 import json
 from dotenv import load_dotenv
+from pyspark.sql import DataFrame
+from databricks.connect import DatabricksSession
+import pyspark.sql.functions as F
+
+spark = DatabricksSession.builder.getOrCreate()
 
 
 def load_env_vars() -> dict:
@@ -27,6 +32,27 @@ def load_env_vars() -> dict:
     return env_vars
 
 
+def extract_model_run_details(
+    path_to_full_model_results: str,
+) -> tuple[str, int, str, str, str]:
+    """Extract metadata about the model run
+
+    Args:
+        path_to_full_model_results (str): Path to full model results folder for specific model run
+
+    Returns:
+        tuple[str, int, str, str, str]: Tuple with demand_model_version, fyear, provider,
+        scenario_name, and scenario_runtime
+    """
+    split_path = path_to_full_model_results.split("/")
+    demand_model_version = split_path[1]
+    fyear = int(get_params_json(path_to_full_model_results)["start_year"])
+    provider = split_path[2]
+    scenario_name = split_path[3]
+    scenario_runtime = split_path[4]
+    return demand_model_version, fyear, provider, scenario_name, scenario_runtime
+
+
 def get_params_json(db_path_to_full_model_results: str) -> dict:
     """Load params JSON from given full model results path in Azure Storage
 
@@ -44,3 +70,44 @@ def get_params_json(db_path_to_full_model_results: str) -> dict:
     ) as f:
         params = json.load(f)
     return params
+
+
+def find_latest_data_patch_version(minor_version: str) -> str:
+    """Data is stored in format vX.X.X whilst demand model version records only vX.X in params.
+    We need to find out what the latest patch version of the data is and use that.
+    For example, for v4.4 of the model we might have v4.4.0 and v4.4.1 data folders.
+
+    Args:
+        minor_version (str): Demand model version, in format vX.X
+
+    Returns:
+        str: Latest patch version matching the minor version.
+    """
+    path_to_data = "/Volumes/nhp/model_data/files/"
+    list_of_patch_versions = [
+        name for name in os.listdir(path_to_data) if name.startswith(minor_version)
+    ]
+    return sorted(list_of_patch_versions)[-1]
+
+
+def load_op_aae_data(
+    demand_model_version: str, activity_type: str, fyear: int, provider: str
+) -> DataFrame:
+    """Loads OP and AAE original model data
+
+    Args:
+        demand_model_version (str): Which version of demand model data to use
+        activity_type (str): Which activity type data to load: op or aae
+        fyear (int): Which fyear data to load
+        provider (str): Which provider data to load
+
+    Returns:
+        DataFrame: Pyspark dataframe with original data
+    """
+    data_version = find_latest_data_patch_version(demand_model_version)
+    data_folder = f"/Volumes/nhp/model_data/files/{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"
+    return (
+        spark.read.parquet(data_folder)
+        .withColumn("model_run", F.lit(0))
+        .withColumnRenamed("index", "rn")
+    )
