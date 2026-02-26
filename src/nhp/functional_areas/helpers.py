@@ -3,9 +3,12 @@ import json
 from dotenv import load_dotenv
 from pyspark.sql import DataFrame
 from databricks.connect import DatabricksSession
+from databricks.sdk import WorkspaceClient
 import pyspark.sql.functions as F
 
 spark = DatabricksSession.builder.getOrCreate()
+w = WorkspaceClient()
+dbutils = w.dbutils
 
 
 def load_env_vars() -> dict:
@@ -111,3 +114,31 @@ def load_op_aae_data(
         .withColumn("model_run", F.lit(0))
         .withColumnRenamed("index", "rn")
     )
+
+
+def validate_result_path(path_to_full_model_results: str) -> str | None:
+    """Checks if result path is provided, and exists
+
+    Args:
+        path_to_full_model_results (str): Path to full model results, in the format
+        full-model-results/MODEL_VERSION/DATASET/SCENARIO_NAME/DATETIME/
+
+    Returns:
+        str | None: None if path to full model results not valid, Databricks path to folder if valid.
+    """
+    # Check path provided
+    try:
+        assert len(path_to_full_model_results) > 0
+    except AssertionError:
+        print("Error! Please supply path to full model results")
+        raise
+    # If path provided, check it exists
+    db_path_to_full_model_results = (
+        "/Volumes/nhp/results/files/" + path_to_full_model_results
+    )
+    try:
+        dbutils.fs.ls(db_path_to_full_model_results)
+        return db_path_to_full_model_results
+    except Exception as e:
+        if "java.io.FileNotFoundException" in str(e):
+            raise
