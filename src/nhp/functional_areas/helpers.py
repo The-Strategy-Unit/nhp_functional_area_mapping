@@ -96,7 +96,8 @@ def find_latest_data_patch_version(minor_version: str) -> str:
 def load_op_aae_data(
     demand_model_version: str, activity_type: str, fyear: int, provider: str
 ) -> DataFrame:
-    """Loads OP and AAE original model data
+    """Loads OP and AAE original model data. Adds model_run column, setting the value to 0
+    for the baseline.
 
     Args:
         demand_model_version (str): Which version of demand model data to use
