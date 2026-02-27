@@ -90,7 +90,7 @@ def process_aae(
     aae_original: DataFrame,
     aae_model_results: DataFrame,
     sdec_groupings_per_run: DataFrame,
-) -> tuple[DataFrame, DataFrame]:
+) -> DataFrame:
     """Processes and aggregates the A&E baseline and model results to produce functional area outputs,
     aggregated by model run and grouping.
 
@@ -100,7 +100,7 @@ def process_aae(
         sdec_groupings_per_run (DataFrame): A&E SDEC activity converted from inpatients in modelling process
 
     Returns:
-        tuple[DataFrame, DataFrame]: _description_
+        DataFrame: A&E data for each of the model runs aggregated into functional areas
     """
     baseline_grouped = (
         create_aae_groupings(aae_original)
@@ -108,7 +108,8 @@ def process_aae(
         .agg(F.sum("arrivals").alias("arrivals"))
     )
     groupings_per_run = (
-        baseline_grouped.drop("model_run", "arrivals")
+        create_aae_groupings(aae_original)
+        .drop("model_run", "arrivals")
         .join(aae_model_results, on="rn", how="left")
         .groupBy("model_run", "grouping")
         .agg(F.sum("arrivals").alias("arrivals"))
@@ -135,9 +136,4 @@ def process_aae(
     final_df = add_missing_groupings(
         final_groupings_per_run_with_baseline, "arrivals", required_aae_groupings
     )
-    summary = final_groupings_per_run_with_baseline.groupBy("grouping").agg(
-        F.mean("arrivals").alias("mean"),
-        F.expr("percentile_approx(arrivals, 0.10)").alias("p10"),
-        F.expr("percentile_approx(arrivals, 0.90)").alias("p90"),
-    )
-    return final_df, summary
+    return final_df
