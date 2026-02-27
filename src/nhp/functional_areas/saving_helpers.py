@@ -26,7 +26,7 @@ def upload_data(env_vars: dict, metadata: dict, df: DataFrame, df_name: str):
         f"{storage_url}?{storage_token}"
     )
     container_client.upload_blob(
-        f"functional-aggregations/{dbutils.widgets.get('capacity_model_version')}/{metadata['RowKey']}/f{df_name}.parquet",
+        f"functional-aggregations/{dbutils.widgets.get('capacity_model_version')}/{metadata['RowKey']}/{df_name}.parquet",
         df.toPandas().set_index("model_run").sort_index().to_parquet(),
         metadata=metadata,
         overwrite=True,
