@@ -151,3 +151,25 @@ def validate_result_path(path_to_full_model_results: str) -> str | None:
     except Exception as e:
         if "java.io.FileNotFoundException" in str(e):
             raise
+
+
+def load_default_results(
+    db_path_to_full_model_results: str, activity_type: str, sites: List[str]
+) -> DataFrame:
+    """Load default results for QA purposes
+
+    Args:
+        db_path_to_full_model_results (str): Path to full model results folder
+        activity_type (str): Activity type (aae, op, or ip)
+        sites (List[str]): Which sites to filter results to
+
+    Returns:
+        DataFrame: Default results from model run, filtered to activity type and sites of interest
+    """
+    default = spark.read.parquet(db_path_to_full_model_results + "default.parquet")
+    default_filtered = default.filter(F.col("pod").startswith(activity_type)).filter(
+        F.col("model_run") != 0
+    )
+    if "ALL" not in sites:
+        default_filtered = default_filtered.where(F.col("sitetret").isin(sites))
+    return default_filtered
