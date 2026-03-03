@@ -1,4 +1,3 @@
-from pyspark.sql.streaming.proto.StateMessage_pb2 import DATA_PROCESSED
 from databricks.connect import DatabricksSession
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame

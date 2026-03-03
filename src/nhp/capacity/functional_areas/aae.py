@@ -1,6 +1,6 @@
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
-from nhp.functional_areas.processing_helpers import add_missing_groupings
+from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 from databricks.connect import DatabricksSession
 
 spark = DatabricksSession.builder.getOrCreate()
