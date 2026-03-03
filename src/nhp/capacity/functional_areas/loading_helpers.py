@@ -1,3 +1,4 @@
+from typing import List
 import os
 import json
 from dotenv import load_dotenv
@@ -94,7 +95,11 @@ def find_latest_data_patch_version(minor_version: str) -> str:
 
 
 def load_op_aae_data(
-    demand_model_version: str, activity_type: str, fyear: int, provider: str
+    demand_model_version: str,
+    activity_type: str,
+    fyear: int,
+    provider: str,
+    sites: List[str],
 ) -> DataFrame:
     """Loads OP and AAE original model data. Adds model_run column, setting the value to 0
     for the baseline.
@@ -110,11 +115,14 @@ def load_op_aae_data(
     """
     data_version = find_latest_data_patch_version(demand_model_version)
     data_folder = f"/Volumes/nhp/model_data/files/{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"
-    return (
+    df = (
         spark.read.parquet(data_folder)
         .withColumn("model_run", F.lit(0))
         .withColumnRenamed("index", "rn")
     )
+    if "ALL" not in sites:
+        df = df.where(F.col("sitetret").isin(sites))
+    return df
 
 
 def validate_result_path(path_to_full_model_results: str) -> str | None:
