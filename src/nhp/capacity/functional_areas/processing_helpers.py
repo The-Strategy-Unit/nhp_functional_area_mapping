@@ -8,14 +8,12 @@ spark = DatabricksSession.builder.getOrCreate()
 
 def add_missing_groupings(
     final_groupings_per_run_with_baseline: DataFrame,
-    measure_column: str,
     required_groupings: List[str],
 ) -> DataFrame:
     """Add missing functional area groupings into DataFrame, with value 0
 
     Args:
         final_groupings_per_run_with_baseline (DataFrame): Fully processed dataframe
-        measure_column (str): Column name in DataFrame with values to be aggregated
         required_groupings (list): Full list of all groupings
 
     Returns:
@@ -28,7 +26,7 @@ def add_missing_groupings(
     expected = model_runs.crossJoin(required_df)
     completed_required = expected.join(
         final_groupings_per_run_with_baseline, on=["model_run", "grouping"], how="left"
-    ).withColumn(measure_column, F.coalesce(F.col(measure_column), F.lit(0)))
+    ).withColumn("total", F.coalesce(F.col("total"), F.lit(0)))
     non_required = final_groupings_per_run_with_baseline.filter(
         ~F.col("grouping").isin(required_groupings)
     )

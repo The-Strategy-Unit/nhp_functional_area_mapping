@@ -105,19 +105,19 @@ def process_aae(
     baseline_grouped = (
         create_aae_groupings(aae_original)
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("arrivals"))
+        .agg(F.sum("arrivals").alias("total"))
     )
     groupings_per_run = (
         create_aae_groupings(aae_original)
         .drop("model_run", "arrivals")
         .join(aae_model_results, on="rn", how="left")
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("arrivals"))
+        .agg(F.sum("arrivals").alias("total"))
     )
     groupings_per_run_with_sdec = (
         groupings_per_run.unionByName(sdec_groupings_per_run)
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("arrivals"))
+        .agg(F.sum("arrivals").alias("total"))
     )
     final_groupings_per_run_with_baseline = groupings_per_run_with_sdec.unionByName(
         baseline_grouped
@@ -134,6 +134,6 @@ def process_aae(
         "child_unknown",
     ]
     final_df = add_missing_groupings(
-        final_groupings_per_run_with_baseline, "arrivals", required_aae_groupings
+        final_groupings_per_run_with_baseline, required_aae_groupings
     )
     return final_df
