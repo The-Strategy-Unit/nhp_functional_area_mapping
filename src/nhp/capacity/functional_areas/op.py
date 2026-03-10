@@ -117,4 +117,54 @@ def qa_op_results(
     final_op_df: DataFrame,
     sites: List[str],
 ):
-    pass
+    """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
+    aggregations as with default model results.
+
+    Args:
+        default_results (DataFrame): Default model results
+        final_op_df (DataFrame): DataFrame of functional area pipeline outputs
+        sites (List[str]):
+    """
+    if "ALL" not in sites:
+        default_results = default_results.where(F.col("sitetret").isin(sites))
+
+    default_grouped = default_results.groupBy("model_run", "pod", "measure").agg(
+        F.sum("value").alias("value")
+    )
+
+    # Define what we want to check
+    checks = {
+        "outpatient_virtual_attendances": (None, "tele_attendances"),
+        "outpatient_procedures": ("op_procedures", None),
+        "outpatient_first_attendances": ("op_first", "attendances"),
+        "outpatient_followup_attendances": ("op_followup", "attendances"),
+    }
+
+    default_means = {}
+
+    for key, (pod, measure) in checks.items():
+        df = default_grouped
+        if pod:
+            df = df.filter(F.col("pod") == pod)
+        if measure:
+            df = df.filter(F.col("measure") == measure)
+
+        default_means[key] = df.agg(F.mean("value")).collect()[0][0]
+
+    aggregation_results_dict = {
+        r["grouping"]: r["mean"]
+        for r in (
+            final_op_df.filter(F.col("model_run") != 0)
+            .groupBy("grouping")
+            .agg(F.mean("total").alias("mean"))
+            .collect()
+        )
+    }
+
+    try:
+        for key in checks:
+            assert float(default_means[key]) == float(aggregation_results_dict[key])
+    except AssertionError:
+        print(
+            f"Aggregated results are not aligned with default model results. Check {key}"
+        )
