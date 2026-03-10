@@ -82,7 +82,7 @@ def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
         db_path_to_full_model_results + "sdec_conversion"
     ).withColumn("grouping", F.lit("sdec_attendances"))
     sdec_groupings_per_run = sdec_converted.groupBy("model_run", "grouping").agg(
-        F.sum("arrivals").alias("arrivals")
+        F.sum("arrivals").alias("total")
     )
     return sdec_groupings_per_run
 
