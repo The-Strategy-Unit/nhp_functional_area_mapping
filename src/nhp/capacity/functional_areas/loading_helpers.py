@@ -119,6 +119,7 @@ def load_op_aae_data(
         spark.read.parquet(data_folder)
         .withColumn("model_run", F.lit(0))
         .withColumnRenamed("index", "rn")
+        .fillna({"sitetret": "unknown"})
     )
     if "ALL" not in sites:
         df = df.where(F.col("sitetret").isin(sites))

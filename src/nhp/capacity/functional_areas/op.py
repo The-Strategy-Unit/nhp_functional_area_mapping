@@ -134,22 +134,28 @@ def qa_op_results(
 
     # Define what we want to check
     checks = {
-        "outpatient_virtual_attendances": (None, "tele_attendances"),
-        "outpatient_procedures": ("op_procedures", None),
-        "outpatient_first_attendances": ("op_first", "attendances"),
-        "outpatient_followup_attendances": ("op_followup", "attendances"),
+        "outpatient_virtual_attendances": (
+            ["op_first", "op_follow-up"],
+            ["tele_attendances"],
+        ),
+        "outpatient_procedures": (["op_procedure"], ["attendances"]),
+        "outpatient_first_attendances": (["op_first"], ["attendances"]),
+        "outpatient_followup_attendances": (["op_follow-up"], ["attendances"]),
     }
 
     default_means = {}
 
-    for key, (pod, measure) in checks.items():
+    for key, (pods, measures) in checks.items():
         df = default_grouped
-        if pod:
-            df = df.filter(F.col("pod") == pod)
-        if measure:
-            df = df.filter(F.col("measure") == measure)
+        df = df.filter(F.col("pod").isin(pods))
+        df = df.filter(F.col("measure").isin(measures))
 
-        default_means[key] = df.agg(F.mean("value")).collect()[0][0]
+        default_means[key] = (
+            df.groupBy("model_run")
+            .agg(F.sum("value").alias("value"))
+            .agg(F.mean("value").alias("default_value"))
+            .collect()[0][0]
+        )
 
     aggregation_results_dict = {
         r["grouping"]: r["mean"]
