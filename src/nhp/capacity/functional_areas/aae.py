@@ -118,7 +118,7 @@ def process_aae(
     groupings_per_run_with_sdec = (
         groupings_per_run.unionByName(sdec_groupings_per_run)
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("total"))
+        .agg(F.sum("total").alias("total"))
     )
     final_groupings_per_run_with_baseline = groupings_per_run_with_sdec.unionByName(
         baseline_grouped
