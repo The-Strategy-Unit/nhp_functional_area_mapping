@@ -2,6 +2,7 @@ import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 from databricks.connect import DatabricksSession
+from typing import List
 
 spark = DatabricksSession.builder.getOrCreate()
 
@@ -137,3 +138,40 @@ def process_aae(
         final_groupings_per_run_with_baseline, required_aae_groupings
     )
     return final_df
+
+
+def qa_aae_results(
+    default_results: DataFrame,
+    final_aae_df: DataFrame,
+    sites: List[str],
+):
+    """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
+    aggregations as with default model results.
+
+    Args:
+        default_results (DataFrame): Default model results
+        final_aae_df (DataFrame): DataFrame of functional area pipeline outputs
+        sites (List[str]):
+    """
+    if "ALL" not in sites:
+        default_results = default_results.where(F.col("sitetret").isin(sites))
+    default_results_value = (
+        default_results.groupBy("model_run")
+        .agg(F.sum("value").alias("value"))
+        .agg(F.mean("value").alias("mean_arrivals"))
+        .collect()[0][0]
+    )
+    grouped_results_value = (
+        final_aae_df.filter(F.col("model_run") != 0)  # model_run 0 is baseline
+        .groupBy("model_run")
+        .agg(F.sum("total").alias("arrivals"))
+        .agg(F.mean("arrivals").alias("mean_arrivals"))
+        .collect()[0][0]
+    )
+    try:
+        assert float(default_results_value) == float(grouped_results_value)
+    except AssertionError:
+        print(
+            "Aggregated results are not aligned with default model results. Check arrivals"
+        )
+        raise
