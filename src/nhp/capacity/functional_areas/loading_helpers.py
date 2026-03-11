@@ -168,8 +168,8 @@ def load_default_results(
         DataFrame: Default results from model run, filtered to activity type and sites of interest
     """
     default = spark.read.parquet(db_path_to_full_model_results + "default.parquet")
-    default_filtered = default.filter(F.col("pod").startswith(activity_type)).filter(
-        F.col("model_run") != 0
+    default_filtered = default.filter(
+        (F.col("pod").like(f"{activity_type}%")) & (F.col("model_run") != 0)
     )
     if "ALL" not in sites:
         default_filtered = default_filtered.where(F.col("sitetret").isin(sites))
