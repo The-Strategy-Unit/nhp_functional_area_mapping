@@ -2,6 +2,7 @@ import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 from databricks.connect import DatabricksSession
+from typing import List
 
 spark = DatabricksSession.builder.getOrCreate()
 
@@ -81,7 +82,7 @@ def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
         db_path_to_full_model_results + "sdec_conversion"
     ).withColumn("grouping", F.lit("sdec_attendances"))
     sdec_groupings_per_run = sdec_converted.groupBy("model_run", "grouping").agg(
-        F.sum("arrivals").alias("arrivals")
+        F.sum("arrivals").alias("total")
     )
     return sdec_groupings_per_run
 
@@ -105,19 +106,19 @@ def process_aae(
     baseline_grouped = (
         create_aae_groupings(aae_original)
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("arrivals"))
+        .agg(F.sum("arrivals").alias("total"))
     )
     groupings_per_run = (
         create_aae_groupings(aae_original)
         .drop("model_run", "arrivals")
         .join(aae_model_results, on="rn", how="left")
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("arrivals"))
+        .agg(F.sum("arrivals").alias("total"))
     )
     groupings_per_run_with_sdec = (
         groupings_per_run.unionByName(sdec_groupings_per_run)
         .groupBy("model_run", "grouping")
-        .agg(F.sum("arrivals").alias("arrivals"))
+        .agg(F.sum("total").alias("total"))
     )
     final_groupings_per_run_with_baseline = groupings_per_run_with_sdec.unionByName(
         baseline_grouped
@@ -134,6 +135,43 @@ def process_aae(
         "child_unknown",
     ]
     final_df = add_missing_groupings(
-        final_groupings_per_run_with_baseline, "arrivals", required_aae_groupings
+        final_groupings_per_run_with_baseline, required_aae_groupings
     )
     return final_df
+
+
+def qa_aae_results(
+    default_results: DataFrame,
+    final_aae_df: DataFrame,
+    sites: List[str],
+):
+    """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
+    aggregations as with default model results.
+
+    Args:
+        default_results (DataFrame): Default model results
+        final_aae_df (DataFrame): DataFrame of functional area pipeline outputs
+        sites (List[str]):
+    """
+    if "ALL" not in sites:
+        default_results = default_results.where(F.col("sitetret").isin(sites))
+    default_results_value = (
+        default_results.groupBy("model_run")
+        .agg(F.sum("value").alias("value"))
+        .agg(F.mean("value").alias("mean_arrivals"))
+        .collect()[0][0]
+    )
+    grouped_results_value = (
+        final_aae_df.filter(F.col("model_run") != 0)  # model_run 0 is baseline
+        .groupBy("model_run")
+        .agg(F.sum("total").alias("arrivals"))
+        .agg(F.mean("arrivals").alias("mean_arrivals"))
+        .collect()[0][0]
+    )
+    try:
+        assert float(default_results_value) == float(grouped_results_value)
+    except AssertionError:
+        print(
+            "Aggregated results are not aligned with default model results. Check arrivals"
+        )
+        raise
