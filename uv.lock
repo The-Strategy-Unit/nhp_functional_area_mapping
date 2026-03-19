@@ -526,6 +526,7 @@ dependencies = [
     { name = "azure-storage-blob" },
     { name = "databricks-connect" },
     { name = "dotenv" },
+    { name = "pandas" },
     { name = "pyspark" },
 ]
 
@@ -536,6 +537,7 @@ requires-dist = [
     { name = "azure-storage-blob", specifier = ">=12.28.0" },
     { name = "databricks-connect", specifier = ">=18.0.3" },
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "pandas", specifier = ">=2.3.3" },
     { name = "pyspark", specifier = ">=3.5.6" },
 ]
 

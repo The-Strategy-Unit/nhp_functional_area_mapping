@@ -10,6 +10,7 @@ dependencies = [
     "azure-storage-blob>=12.28.0",
     "databricks-connect>=18.0.3",
     "dotenv>=0.9.9",
+    "pandas>=2.3.3",
     "pyspark>=3.5.6",
 ]
 
