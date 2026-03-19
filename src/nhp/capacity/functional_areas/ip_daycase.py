@@ -11,7 +11,7 @@ spark = DatabricksSession.builder.getOrCreate()
 def get_tretspef_lookup(
     excel_path: str,
 ) -> DataFrame:
-    """Load tretspef lookup file from given location. Currently using
+    """Load tretspef lookup file from given location. Currently using custom edit of
     https://digital.nhs.uk/binaries/content/assets/website-assets/isce/dcb0028/0028452019codelistspecificationv1.2.xlsx
 
     Args:
@@ -20,14 +20,10 @@ def get_tretspef_lookup(
     Returns:
         DataFrame: DataFrame with two columns, tretspef (treatment function code) and treatment specialty type (medical/surgical)
     """
-    tretspef_lookup = pd.read_excel(
-        excel_path, engine="openpyxl", sheet_name="Treatment Function Codes"
-    )[["DD Code", "Group"]]
-    tretspef_lookup["DD Code"] = tretspef_lookup["DD Code"].astype(int)
+    tretspef_lookup = pd.read_excel(excel_path, engine="openpyxl")
+    tretspef_lookup["tretspef"] = tretspef_lookup["tretspef"].astype(int)
     tretspef_lookup_df = spark.createDataFrame(
-        tretspef_lookup.rename(
-            columns={"DD Code": "tretspef", "Group": "tretspef_type"}
-        )
+        tretspef_lookup.rename(columns={"NHP categorisation": "tretspef_type"})
     )
     return tretspef_lookup_df
 
@@ -67,23 +63,19 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
         daycase_only.withColumn(
             "grouping",
             F.when(
-                (F.col("tretspef_type") == "Surgical Services")
-                & (F.col("admiage") > 17),
+                (F.col("tretspef_type") == "Surgical") & (F.col("admiage") > 17),
                 "adult_surgical_daycase",
             )
             .when(
-                (F.col("tretspef_type") == "Medical Services")
-                & (F.col("admiage") > 17),
+                (F.col("tretspef_type") == "Medical/Other") & (F.col("admiage") > 17),
                 "adult_medical_daycase",
             )
             .when(
-                (F.col("tretspef_type") == "Surgical Services")
-                & (F.col("admiage") <= 17),
+                (F.col("tretspef_type") == "Surgical") & (F.col("admiage") <= 17),
                 "paediatric_surgical_daycase",
             )
             .when(
-                (F.col("tretspef_type") == "Medical Services")
-                & (F.col("admiage") <= 17),
+                (F.col("tretspef_type") == "Medical/Other") & (F.col("admiage") <= 17),
                 "paediatric_medical_daycase",
             )
             .when((F.col("admiage") > 17), "adult_unknown_daycase")
