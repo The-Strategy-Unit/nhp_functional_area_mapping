@@ -94,14 +94,14 @@ def find_latest_data_patch_version(minor_version: str) -> str:
     return sorted(list_of_patch_versions)[-1]
 
 
-def load_op_aae_data(
+def load_model_data(
     demand_model_version: str,
     activity_type: str,
     fyear: int,
     provider: str,
     sites: List[str],
 ) -> DataFrame:
-    """Loads OP and AAE original model data. Adds model_run column, setting the value to 0
+    """Loads original model data. Adds model_run column, setting the value to 0
     for the baseline.
 
     Args:
