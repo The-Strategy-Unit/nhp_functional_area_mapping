@@ -89,10 +89,9 @@ def process_ip_wards(
         .join(ip_model_results, on="rn", how="left")
         .withColumn(
             "pod",
-            F.when(F.col("classpat") == "-2", "ip_elective_daycase")
-            .when(F.col("classpat") == "-1", "op_procedure")
-            .when(F.col("classpat") == "-3", "aae_type-05")
-            .otherwise(F.col("pod")),
+            F.when(F.col("classpat") == "2", "ip_elective_daycase").otherwise(
+                F.col("pod")
+            ),
         )
     )
     final_groupings_per_run_with_baseline = groupings_per_run.unionByName(
