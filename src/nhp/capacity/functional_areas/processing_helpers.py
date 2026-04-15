@@ -1,7 +1,9 @@
-from databricks.connect import DatabricksSession
-import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
 from typing import List
+
+import pandas as pd
+import pyspark.sql.functions as F
+from databricks.connect import DatabricksSession
+from pyspark.sql import DataFrame
 
 spark = DatabricksSession.builder.getOrCreate()
 
@@ -32,3 +34,42 @@ def add_missing_groupings(
     )
     final_df = non_required.unionByName(completed_required)
     return final_df
+
+
+def get_tretspef_lookup(
+    excel_path: str,
+) -> DataFrame:
+    """Load tretspef lookup file from given location. Currently using custom edit of
+    https://digital.nhs.uk/binaries/content/assets/website-assets/isce/dcb0028/0028452019codelistspecificationv1.2.xlsx
+
+    Args:
+        excel_path (str): Path to Excel file
+
+    Returns:
+        DataFrame: DataFrame with two columns, tretspef (treatment function code) and treatment specialty type (medical/surgical)
+    """
+    tretspef_lookup = pd.read_excel(excel_path, engine="openpyxl")
+    tretspef_lookup["tretspef"] = tretspef_lookup["tretspef"].astype(int)
+    tretspef_lookup_df = spark.createDataFrame(
+        tretspef_lookup.rename(columns={"NHP categorisation": "tretspef_type"})
+    )
+    return tretspef_lookup_df
+
+
+def add_tretspef_type(
+    ip_original: DataFrame, tretspef_lookup_df: DataFrame
+) -> DataFrame:
+    """Adds tretspef_type column to inpatients data to help with mapping daycase activity to medical/surgical
+
+    Args:
+        ip_original (DataFrame): Inpatients model data
+        tretspef_lookup_df (DataFrame): DataFrame mapping treatment specialty code to treatment specialty type (medical/surgical)
+
+    Returns:
+        DataFrame: Inpatients model data with additional tretspef_type column
+    """
+    return ip_original.join(
+        tretspef_lookup_df,
+        on=ip_original["tretspef"] == tretspef_lookup_df["tretspef"],
+        how="left",
+    ).drop(tretspef_lookup_df["tretspef"])
