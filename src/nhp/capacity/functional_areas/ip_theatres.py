@@ -187,7 +187,7 @@ def process_ip_theatres(
     return final_df
 
 
-def qa_ip_theatre_results(
+def qa_ip_theatres_results(
     default_results: DataFrame, final_ip_theatres_df: DataFrame, sites: List[str]
 ):
     """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
@@ -201,7 +201,9 @@ def qa_ip_theatre_results(
     if "ALL" not in sites:
         default_results = default_results.where((F.col("sitetret").isin(sites)))
     default_results = default_results.where(
-        (F.col("measure") == "procedures") & (~F.col("pod").like("%maternity%"))
+        (F.col("measure") == "procedures")
+        & (~F.col("pod").like("%maternity%"))
+        & (~F.col("pod").like("%regular%"))
     )
     default_results_value = (
         default_results.groupBy("model_run")
