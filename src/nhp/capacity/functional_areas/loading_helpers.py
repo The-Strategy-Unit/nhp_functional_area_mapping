@@ -130,10 +130,14 @@ def load_model_data(
     Returns:
         DataFrame: Pyspark dataframe with original data
     """
+    volume_path = "/Volumes/nhp/model_data/files/"
     data_version = find_latest_data_version_db(
-        volume_path="/Volumes/nhp/model_data/files/", model_version=demand_model_version
+        volume_path=volume_path, model_version=demand_model_version
     )
-    data_folder = f"/Volumes/nhp/model_data/files/{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"
+    data_folder = (
+        volume_path
+        + f"{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"
+    )
     df = (
         spark.read.parquet(data_folder)
         .withColumn("model_run", F.lit(0))
