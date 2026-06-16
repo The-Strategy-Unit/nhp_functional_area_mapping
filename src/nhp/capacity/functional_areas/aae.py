@@ -1,10 +1,69 @@
-import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
-from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
-from databricks.connect import DatabricksSession
 from typing import List
 
+import pyspark.sql.functions as F
+from databricks.connect import DatabricksSession
+from pyspark.sql import DataFrame
+from pyspark.sql.column import Column
+
+from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
+
 spark = DatabricksSession.builder.getOrCreate()
+
+## Classifications
+
+
+def class_ae() -> Column:
+    return F.col("aedepttype") == "01"
+
+
+def class_age_adult() -> Column:
+    return F.col("is_adult")  # TODO: SHOULD WE USE AGE?
+
+
+def class_age_child() -> Column:
+    return ~F.col("is_adult")
+
+
+def class_ae_resus() -> Column:
+    return F.col("acuity") == "immediate-resuscitation"
+
+
+def class_ae_major() -> Column:
+    return F.col("acuity") == "very-urgent"
+
+
+def class_ae_minor() -> Column:
+    return (
+        F.col("acuity").isin(
+            "standard",
+            "non-urgent",
+            "urgent",
+        )
+        | F.col("acuity").isNull()
+    )
+
+
+def class_sdec() -> Column:
+    return F.col("aedepttype") == "05"
+
+
+## Groupings
+
+
+def is_adult_minor():
+    return class_ae() & class_age_adult() & class_ae_minor()
+
+
+def is_adult_major():
+    return class_ae() & class_age_adult() & class_ae_major()
+
+
+def is_child_minor():
+    return class_ae() & class_age_child() & class_ae_minor()
+
+
+def is_child_major():
+    return class_ae() & class_age_child() & class_ae_major()
 
 
 def create_aae_groupings(df: DataFrame) -> DataFrame:
@@ -19,50 +78,26 @@ def create_aae_groupings(df: DataFrame) -> DataFrame:
     """
     df = df.withColumn(
         "grouping",
-        F.when(F.col("pod") == "aae_type-05", "sdec_attendances")
+        F.when(class_sdec(), "sdec_attendances")
         .when(
-            (F.col("acuity") == "immediate-resuscitation"),
+            class_ae_resus(),
             "resus_attendances",
         )
         .when(
-            (F.col("is_adult"))
-            & (F.col("pod") == "aae_type-01")
-            & (F.col("acuity").isin("standard", "non-urgent", "urgent")),
+            is_adult_minor(),
             "adult_minor_attendances",
         )
         .when(
-            (F.col("is_adult"))
-            & (F.col("pod") == "aae_type-01")
-            & (F.col("acuity") == "very-urgent"),
+            is_adult_major(),
             "adult_major_attendances",
         )
         .when(
-            (~F.col("is_adult"))
-            & (F.col("pod") == "aae_type-01")
-            & (F.col("acuity").isin("standard", "non-urgent", "urgent")),
+            is_child_minor(),
             "child_minor_attendances",
         )
         .when(
-            (~F.col("is_adult"))
-            & (F.col("pod") == "aae_type-01")
-            & (F.col("acuity") == "very-urgent"),
+            is_child_major(),
             "child_major_attendances",
-        )
-        .when(
-            (~F.col("is_adult")) & (F.col("pod") == "aae_type-02"),
-            "child_type-02",
-        )
-        .when(
-            (F.col("is_adult")) & (F.col("pod") == "aae_type-02"),
-            "adult_type-02",
-        )
-        .when(
-            (~F.col("is_adult")),
-            "child_unknown",
-        )
-        .when(
-            (F.col("is_adult")),
-            "adult_unknown",
         ),
     )
     return df
@@ -131,8 +166,6 @@ def process_aae(
         "child_major_attendances",
         "resus_attendances",
         "sdec_attendances",
-        "adult_unknown",
-        "child_unknown",
     ]
     final_df = add_missing_groupings(
         final_groupings_per_run_with_baseline, required_aae_groupings
@@ -155,6 +188,8 @@ def qa_aae_results(
     """
     if "ALL" not in sites:
         default_results = default_results.where(F.col("sitetret").isin(sites))
+    # TODO: filter pods to only type 01 and type 05
+    default_results.filter(F.col("pod").isin(["aae_type-01", "aae_type-05"]))
     default_results_value = (
         default_results.groupBy("model_run")
         .agg(F.sum("value").alias("value"))
