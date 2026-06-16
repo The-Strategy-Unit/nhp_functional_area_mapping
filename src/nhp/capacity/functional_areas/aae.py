@@ -188,8 +188,9 @@ def qa_aae_results(
     """
     if "ALL" not in sites:
         default_results = default_results.where(F.col("sitetret").isin(sites))
-    # TODO: filter pods to only type 01 and type 05
-    default_results.filter(F.col("pod").isin(["aae_type-01", "aae_type-05"]))
+    default_results = default_results.filter(
+        F.col("pod").isin(["aae_type-01", "aae_type-05"])
+    )  # functional areas only use type 01 and type 05
     default_results_value = (
         default_results.groupBy("model_run")
         .agg(F.sum("value").alias("value"))
