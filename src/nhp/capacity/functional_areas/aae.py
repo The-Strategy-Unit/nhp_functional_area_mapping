@@ -5,6 +5,10 @@ from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
 from pyspark.sql.column import Column
 
+from nhp.capacity.functional_areas.classifications import (
+    class_age_adult,
+    class_age_child,
+)
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
@@ -14,14 +18,6 @@ spark = DatabricksSession.builder.getOrCreate()
 
 def class_ae() -> Column:
     return F.col("aedepttype") == "01"
-
-
-def class_age_adult() -> Column:
-    return F.col("is_adult")  # TODO: SHOULD WE USE AGE?
-
-
-def class_age_child() -> Column:
-    return ~F.col("is_adult")
 
 
 def class_ae_resus() -> Column:
