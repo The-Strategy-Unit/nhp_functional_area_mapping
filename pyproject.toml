@@ -10,7 +10,6 @@ dependencies = [
     "azure-storage-blob>=12.28.0",
     "databricks-connect>=18.0.3",
     "dotenv>=0.9.9",
-    "nhp-products@git+https://github.com/the-strategy-unit/nhp_products.git@v5.1.0",
     "openpyxl>=3.1.5",
     "pandas>=2.3.3",
     "pyspark>=3.5.6",
@@ -25,6 +24,3 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.uv.sources]
-nhp-products = { git = "https://github.com/The-Strategy-Unit/nhp_products", rev = "v5.1.0" }

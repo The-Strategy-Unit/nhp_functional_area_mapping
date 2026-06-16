@@ -6,14 +6,15 @@ import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from databricks.sdk import WorkspaceClient
 from dotenv import load_dotenv
-from nhpy.az import (
+from packaging.version import Version
+from pyspark.sql import DataFrame
+
+from nhp.capacity.functional_areas.utils import (
     earlier_minor,
     is_version_folder,
     latest,
     same_minor,
 )
-from packaging.version import Version
-from pyspark.sql import DataFrame
 
 spark = DatabricksSession.builder.getOrCreate()
 w = WorkspaceClient()
