@@ -3,45 +3,19 @@ from typing import List
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
-from pyspark.sql.column import Column
 
 from nhp.capacity.functional_areas.classifications import (
+    class_ae,
+    class_ae_major,
+    class_ae_minor,
+    class_ae_resus,
     class_age_adult,
     class_age_child,
+    class_sdec,
 )
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
-
-## Classifications
-
-
-def class_ae() -> Column:
-    return F.col("aedepttype") == "01"
-
-
-def class_ae_resus() -> Column:
-    return F.col("acuity") == "immediate-resuscitation"
-
-
-def class_ae_major() -> Column:
-    return F.col("acuity") == "very-urgent"
-
-
-def class_ae_minor() -> Column:
-    return (
-        F.col("acuity").isin(
-            "standard",
-            "non-urgent",
-            "urgent",
-        )
-        | F.col("acuity").isNull()
-    )
-
-
-def class_sdec() -> Column:
-    return F.col("aedepttype") == "05"
-
 
 ## Groupings
 
