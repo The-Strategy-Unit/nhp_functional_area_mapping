@@ -1,11 +1,20 @@
-from typing import List
-import os
 import json
-from dotenv import load_dotenv
-from pyspark.sql import DataFrame
+import os
+from typing import List
+
+import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from databricks.sdk import WorkspaceClient
-import pyspark.sql.functions as F
+from dotenv import load_dotenv
+from packaging.version import Version
+from pyspark.sql import DataFrame
+
+from nhp.capacity.functional_areas.utils import (
+    earlier_minor,
+    is_version_folder,
+    latest,
+    same_minor,
+)
 
 spark = DatabricksSession.builder.getOrCreate()
 w = WorkspaceClient()
@@ -23,11 +32,11 @@ def load_env_vars() -> dict:
     """
     load_dotenv()
     env_vars = {}
-    env_vars["secret_scope"] = os.getenv("DATABRICKS_SECRET_SCOPE")
-    env_vars["table_key"] = os.getenv("DATABRICKS_SECRET_TABLE_KEY")
-    env_vars["storage_key"] = os.getenv("DATABRICKS_SECRET_STORAGE_KEY")
-    env_vars["account_name"] = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
-    env_vars["table_name"] = os.getenv("TABLE_NAME")
+    env_vars["secret_scope"] = os.getenv("DATABRICKS_SECRET_SCOPE", "")
+    env_vars["table_key"] = os.getenv("DATABRICKS_SECRET_TABLE_KEY", "")
+    env_vars["storage_key"] = os.getenv("DATABRICKS_SECRET_STORAGE_KEY", "")
+    env_vars["account_name"] = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "")
+    env_vars["table_name"] = os.getenv("TABLE_NAME", "")
     for k, v in env_vars.items():
         try:
             assert len(v) > 0
@@ -76,22 +85,31 @@ def get_params_json(db_path_to_full_model_results: str) -> dict:
     return params
 
 
-def find_latest_data_patch_version(minor_version: str) -> str:
-    """Data is stored in format vX.X.X whilst demand model version records only vX.X in params.
-    We need to find out what the latest patch version of the data is and use that.
-    For example, for v4.4 of the model we might have v4.4.0 and v4.4.1 data folders.
+def find_latest_data_version_db(volume_path: str, model_version: str) -> str:
+    """Databricks equvalent of nhpy.az.find_latest_version (uses Databricks Volume instead of container client)
 
     Args:
-        minor_version (str): Demand model version, in format vX.X
+        volume_path (str): Path to the volume on Databricks with model data
+        model_version (str): App version in format v{major}.{minor}
 
     Returns:
-        str: Latest patch version matching the minor version.
+        str: Latest data version
     """
-    path_to_data = "/Volumes/nhp/model_data/files/"
-    list_of_patch_versions = [
-        name for name in os.listdir(path_to_data) if name.startswith(minor_version)
+    all_versions = [
+        f.name.rstrip("/")
+        for f in dbutils.fs.ls(volume_path)
+        if is_version_folder(f.name.rstrip("/"))
     ]
-    return sorted(list_of_patch_versions)[-1]
+
+    parsed = Version(model_version.lstrip("v"))
+    major, minor = parsed.major, parsed.minor
+
+    same = [v for v in all_versions if same_minor(v, major, minor)]
+    if same:
+        return latest(same)  # ty: ignore[invalid-return-type]
+
+    earlier = [v for v in all_versions if earlier_minor(v, major, minor)]
+    return latest(earlier) or "N/A"
 
 
 def load_model_data(
@@ -113,8 +131,14 @@ def load_model_data(
     Returns:
         DataFrame: Pyspark dataframe with original data
     """
-    data_version = find_latest_data_patch_version(demand_model_version)
-    data_folder = f"/Volumes/nhp/model_data/files/{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"
+    volume_path = "/Volumes/nhp/model_data/files/"
+    data_version = find_latest_data_version_db(
+        volume_path=volume_path, model_version=demand_model_version
+    )
+    data_folder = (
+        volume_path
+        + f"{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"
+    )
     df = (
         spark.read.parquet(data_folder)
         .withColumn("model_run", F.lit(0))
@@ -167,7 +191,10 @@ def load_default_results(
     Returns:
         DataFrame: Default results from model run, filtered to activity type and sites of interest
     """
-    default = spark.read.parquet(db_path_to_full_model_results + "default.parquet")
+    path_to_aggregated_folder = db_path_to_full_model_results.replace(
+        "full-", "aggregated-"
+    )
+    default = spark.read.parquet(path_to_aggregated_folder + "default.parquet")
     default_filtered = default.filter(
         (F.col("pod").like(f"{activity_type}%")) & (F.col("model_run") != 0)
     )
