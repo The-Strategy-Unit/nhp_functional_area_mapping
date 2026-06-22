@@ -1,5 +1,3 @@
-from typing import List
-
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -146,7 +144,6 @@ def process_aae(
 def qa_aae_results(
     default_results: DataFrame,
     final_aae_df: DataFrame,
-    sites: List[str],
 ):
     """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
     aggregations as with default model results.
@@ -154,10 +151,7 @@ def qa_aae_results(
     Args:
         default_results (DataFrame): Default model results
         final_aae_df (DataFrame): DataFrame of functional area pipeline outputs
-        sites (List[str]):
     """
-    if "ALL" not in sites:
-        default_results = default_results.where(F.col("sitetret").isin(sites))
     default_results = default_results.filter(
         F.col("pod").isin(["aae_type-01", "aae_type-05"])
     )  # functional areas only use type 01 and type 05

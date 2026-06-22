@@ -135,6 +135,7 @@ def load_model_data(
     data_version = find_latest_data_version_db(
         volume_path=volume_path, model_version=demand_model_version
     )
+    print(f"Using data version {data_version}")
     data_folder = (
         volume_path
         + f"{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"

@@ -1,5 +1,3 @@
-from typing import List
-
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -137,7 +135,6 @@ def process_op(
 def qa_op_results(
     default_results: DataFrame,
     final_op_df: DataFrame,
-    sites: List[str],
 ):
     """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
     aggregations as with default model results.
@@ -145,11 +142,7 @@ def qa_op_results(
     Args:
         default_results (DataFrame): Default model results
         final_op_df (DataFrame): DataFrame of functional area pipeline outputs
-        sites (List[str]):
     """
-    if "ALL" not in sites:
-        default_results = default_results.where(F.col("sitetret").isin(sites))
-
     default_grouped = default_results.groupBy("model_run", "pod", "measure").agg(
         F.sum("value").alias("value")
     )
@@ -195,3 +188,4 @@ def qa_op_results(
         print(
             f"Aggregated results are not aligned with default model results. Check {key}"
         )
+        raise
