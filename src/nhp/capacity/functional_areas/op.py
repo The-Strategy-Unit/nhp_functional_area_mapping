@@ -55,7 +55,7 @@ def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
     """
     op_converted = spark.read.parquet(
         db_path_to_full_model_results + "op_conversion"
-    ).withColumn("grouping", F.lit("outpatient_procedures"))
+    ).withColumn("grouping", F.lit("op_procedures"))
     op_converted_groupings_per_run = op_converted.groupBy("model_run", "grouping").agg(
         F.sum("attendances").alias("total")
     )
