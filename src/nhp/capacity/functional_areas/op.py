@@ -1,10 +1,46 @@
-import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
-from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
-from databricks.connect import DatabricksSession
 from typing import List
 
+import pyspark.sql.functions as F
+from databricks.connect import DatabricksSession
+from pyspark.sql import DataFrame
+
+from nhp.capacity.functional_areas.classifications import (
+    class_has_procedure,
+    class_op_face_to_face,
+    class_op_first,
+    class_op_follow_up,
+    class_op_virtual,
+)
+from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
+
 spark = DatabricksSession.builder.getOrCreate()
+
+
+def is_op_procedures():
+    return F.sum(
+        F.when(
+            class_has_procedure(),
+            class_op_face_to_face(),
+        )
+    )
+
+
+def is_op_first_attendances():
+    return F.sum(
+        F.when(
+            class_op_first(),
+            class_op_face_to_face(),
+        )
+    )
+
+
+def is_op_follow_up_attendances():
+    return F.sum(
+        F.when(
+            class_op_follow_up(),
+            class_op_face_to_face(),
+        )
+    )
 
 
 def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
@@ -27,39 +63,25 @@ def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
 
 
 def create_op_groupings(df: DataFrame) -> DataFrame:
-    """Adds "grouping" column to the OP data with the functional areas
+    """Calculates outpatients (OP) groupings and aggregates total for each grouping in each model run
 
     Args:
-        df (DataFrame): Raw OP data
+        df (DataFrame): OP data
 
     Returns:
-        DataFrame: OP data, with additional "grouping" column with functional areas created as detailed
-        in the specification
+        DataFrame: Aggregated OP data with sum of attendances by grouping and model run
     """
     agg_df = df.groupBy("model_run").agg(
-        F.sum(F.when(F.col("has_procedures"), F.col("attendances"))).alias(
-            "outpatient_procedures"
-        ),
-        F.sum(
-            F.when(
-                (~F.col("has_procedures")) & (F.col("is_first")), F.col("attendances")
-            )
-        ).alias("outpatient_first_attendances"),
-        F.sum(
-            F.when(
-                (~F.col("has_procedures")) & (~F.col("is_first")), F.col("attendances")
-            )
-        ).alias("outpatient_followup_attendances"),
-        F.sum(F.when(~F.col("has_procedures"), F.col("tele_attendances"))).alias(
-            "outpatient_virtual_attendances"
-        ),
+        is_op_procedures().alias("op_procedures"),
+        is_op_first_attendances().alias("op_first_attendances"),
+        is_op_follow_up_attendances().alias("op_follow_up_attendances"),
+        class_op_virtual().alias("op_virtual_attendances"),
     )
-
     cols = [
-        "outpatient_procedures",
-        "outpatient_first_attendances",
-        "outpatient_followup_attendances",
-        "outpatient_virtual_attendances",
+        "op_procedures",
+        "op_first_attendances",
+        "op_follow_up_attendances",
+        "op_virtual_attendances",
     ]
 
     mapping = []
