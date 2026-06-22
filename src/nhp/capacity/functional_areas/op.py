@@ -123,10 +123,10 @@ def process_op(
     )
     # # Add missing groupings - we need all groupings to be present in all model runs even if value is 0
     required_op_groupings = [
-        "outpatient_procedures",
-        "outpatient_first_attendances",
-        "outpatient_followup_attendances",
-        "outpatient_virtual_attendances",
+        "op_procedures",
+        "op_first_attendances",
+        "op_follow_up_attendances",
+        "op_virtual_attendances",
     ]
     final_df = add_missing_groupings(
         final_groupings_per_run_with_baseline, required_op_groupings
@@ -153,16 +153,15 @@ def qa_op_results(
     default_grouped = default_results.groupBy("model_run", "pod", "measure").agg(
         F.sum("value").alias("value")
     )
-
     # Define what we want to check
     checks = {
-        "outpatient_virtual_attendances": (
+        "op_virtual_attendances": (
             ["op_first", "op_follow-up"],
             ["tele_attendances"],
         ),
-        "outpatient_procedures": (["op_procedure"], ["attendances"]),
-        "outpatient_first_attendances": (["op_first"], ["attendances"]),
-        "outpatient_followup_attendances": (["op_follow-up"], ["attendances"]),
+        "op_procedures": (["op_procedure"], ["attendances"]),
+        "op_first_attendances": (["op_first"], ["attendances"]),
+        "op_follow_up_attendances": (["op_follow-up"], ["attendances"]),
     }
 
     default_means = {}
