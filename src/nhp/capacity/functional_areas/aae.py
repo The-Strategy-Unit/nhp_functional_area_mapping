@@ -1,3 +1,5 @@
+from typing import List
+
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -71,12 +73,15 @@ def create_aae_groupings(df: DataFrame) -> DataFrame:
     return df
 
 
-def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
+def process_sdec_converted(
+    db_path_to_full_model_results: str, sites: List[str]
+) -> DataFrame:
     """Processes the activity converted from IP to SDEC, adding functional area grouping column and
     aggregating by model run and grouping
 
     Args:
         db_path_to_full_model_results (str): Path to location of full model results on Databricks
+        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Activity converted from IP to SDEC, with functional area grouping column
@@ -84,6 +89,8 @@ def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
     sdec_converted = spark.read.parquet(
         db_path_to_full_model_results + "sdec_conversion"
     ).withColumn("grouping", F.lit("sdec_attendances"))
+    if "ALL" not in sites:
+        sdec_converted = sdec_converted.where(F.col("sitetret").isin(sites))
     sdec_groupings_per_run = sdec_converted.groupBy("model_run", "grouping").agg(
         F.sum("arrivals").alias("total")
     )

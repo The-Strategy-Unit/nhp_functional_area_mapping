@@ -1,3 +1,5 @@
+from typing import List
+
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -41,12 +43,16 @@ def is_op_follow_up_attendances():
     )
 
 
-def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
+def process_op_converted(
+    db_path_to_full_model_results: str,
+    sites: List[str],
+) -> DataFrame:
     """Processes the activity converted from IP to OP, adding functional area grouping column and
     aggregating by model run and grouping
 
     Args:
         db_path_to_full_model_results (str): Path to location of full model results on Databricks
+        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Activity converted from IP to OP, with functional area grouping column
@@ -54,6 +60,8 @@ def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
     op_converted = spark.read.parquet(
         db_path_to_full_model_results + "op_conversion"
     ).withColumn("grouping", F.lit("op_procedures"))
+    if "ALL" not in sites:
+        op_converted = op_converted.where(F.col("sitetret").isin(sites))
     op_converted_groupings_per_run = op_converted.groupBy("model_run", "grouping").agg(
         F.sum("attendances").alias("total")
     )
