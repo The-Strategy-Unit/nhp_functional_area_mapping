@@ -52,7 +52,7 @@ def class_has_procedure() -> Column:
 
 
 def class_op_virtual() -> Column:
-    return F.sum(F.col("tele_attendances"))
+    return F.col("tele_attendances")
 
 
 def class_op_face_to_face() -> Column:

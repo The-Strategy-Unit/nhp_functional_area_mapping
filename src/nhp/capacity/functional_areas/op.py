@@ -43,6 +43,10 @@ def is_op_follow_up_attendances():
     )
 
 
+def is_op_virtual_attendances():
+    return F.sum(class_op_virtual())
+
+
 def process_op_converted(
     db_path_to_full_model_results: str,
     sites: List[str],
@@ -81,7 +85,7 @@ def create_op_groupings(df: DataFrame) -> DataFrame:
         is_op_procedures().alias("op_procedures"),
         is_op_first_attendances().alias("op_first_attendances"),
         is_op_follow_up_attendances().alias("op_follow_up_attendances"),
-        class_op_virtual().alias("op_virtual_attendances"),
+        is_op_virtual_attendances().alias("op_virtual_attendances"),
     )
     cols = [
         "op_procedures",
