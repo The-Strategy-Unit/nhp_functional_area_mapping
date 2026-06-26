@@ -127,6 +127,7 @@ def load_model_data(
         activity_type (str): Which activity type data to load: op or aae
         fyear (int): Which fyear data to load
         provider (str): Which provider data to load
+        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Pyspark dataframe with original data
@@ -135,6 +136,7 @@ def load_model_data(
     data_version = find_latest_data_version_db(
         volume_path=volume_path, model_version=demand_model_version
     )
+    print(f"Using data version {data_version}")
     data_folder = (
         volume_path
         + f"{data_version}/{activity_type}/fyear={fyear}/dataset={provider}/"

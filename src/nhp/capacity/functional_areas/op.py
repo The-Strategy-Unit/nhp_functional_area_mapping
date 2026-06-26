@@ -1,25 +1,71 @@
-import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
-from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
-from databricks.connect import DatabricksSession
 from typing import List
+
+import pyspark.sql.functions as F
+from databricks.connect import DatabricksSession
+from pyspark.sql import DataFrame
+
+from nhp.capacity.functional_areas.classifications import (
+    class_has_procedure,
+    class_op_face_to_face,
+    class_op_first,
+    class_op_follow_up,
+    class_op_virtual,
+)
+from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
 
 
-def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
+def is_op_procedures():
+    return F.sum(
+        F.when(
+            class_has_procedure(),
+            class_op_face_to_face(),
+        )
+    )
+
+
+def is_op_first_attendances():
+    return F.sum(
+        F.when(
+            class_op_first(),
+            class_op_face_to_face(),
+        )
+    )
+
+
+def is_op_follow_up_attendances():
+    return F.sum(
+        F.when(
+            class_op_follow_up(),
+            class_op_face_to_face(),
+        )
+    )
+
+
+def is_op_virtual_attendances():
+    return F.sum(class_op_virtual())
+
+
+def process_op_converted(
+    db_path_to_full_model_results: str,
+    sites: List[str],
+) -> DataFrame:
     """Processes the activity converted from IP to OP, adding functional area grouping column and
     aggregating by model run and grouping
 
     Args:
         db_path_to_full_model_results (str): Path to location of full model results on Databricks
+        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Activity converted from IP to OP, with functional area grouping column
     """
     op_converted = spark.read.parquet(
         db_path_to_full_model_results + "op_conversion"
-    ).withColumn("grouping", F.lit("outpatient_procedures"))
+    ).withColumn("grouping", F.lit("op_procedures"))
+    if "ALL" not in sites:
+        op_converted = op_converted.where(F.col("sitetret").isin(sites))
     op_converted_groupings_per_run = op_converted.groupBy("model_run", "grouping").agg(
         F.sum("attendances").alias("total")
     )
@@ -27,39 +73,25 @@ def process_op_converted(db_path_to_full_model_results: str) -> DataFrame:
 
 
 def create_op_groupings(df: DataFrame) -> DataFrame:
-    """Adds "grouping" column to the OP data with the functional areas
+    """Calculates outpatients (OP) groupings and aggregates total for each grouping in each model run
 
     Args:
-        df (DataFrame): Raw OP data
+        df (DataFrame): OP data
 
     Returns:
-        DataFrame: OP data, with additional "grouping" column with functional areas created as detailed
-        in the specification
+        DataFrame: Aggregated OP data with sum of attendances by grouping and model run
     """
     agg_df = df.groupBy("model_run").agg(
-        F.sum(F.when(F.col("has_procedures"), F.col("attendances"))).alias(
-            "outpatient_procedures"
-        ),
-        F.sum(
-            F.when(
-                (~F.col("has_procedures")) & (F.col("is_first")), F.col("attendances")
-            )
-        ).alias("outpatient_first_attendances"),
-        F.sum(
-            F.when(
-                (~F.col("has_procedures")) & (~F.col("is_first")), F.col("attendances")
-            )
-        ).alias("outpatient_followup_attendances"),
-        F.sum(F.when(~F.col("has_procedures"), F.col("tele_attendances"))).alias(
-            "outpatient_virtual_attendances"
-        ),
+        is_op_procedures().alias("op_procedures"),
+        is_op_first_attendances().alias("op_first_attendances"),
+        is_op_follow_up_attendances().alias("op_follow_up_attendances"),
+        is_op_virtual_attendances().alias("op_virtual_attendances"),
     )
-
     cols = [
-        "outpatient_procedures",
-        "outpatient_first_attendances",
-        "outpatient_followup_attendances",
-        "outpatient_virtual_attendances",
+        "op_procedures",
+        "op_first_attendances",
+        "op_follow_up_attendances",
+        "op_virtual_attendances",
     ]
 
     mapping = []
@@ -101,10 +133,10 @@ def process_op(
     )
     # # Add missing groupings - we need all groupings to be present in all model runs even if value is 0
     required_op_groupings = [
-        "outpatient_procedures",
-        "outpatient_first_attendances",
-        "outpatient_followup_attendances",
-        "outpatient_virtual_attendances",
+        "op_procedures",
+        "op_first_attendances",
+        "op_follow_up_attendances",
+        "op_virtual_attendances",
     ]
     final_df = add_missing_groupings(
         final_groupings_per_run_with_baseline, required_op_groupings
@@ -115,7 +147,6 @@ def process_op(
 def qa_op_results(
     default_results: DataFrame,
     final_op_df: DataFrame,
-    sites: List[str],
 ):
     """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
     aggregations as with default model results.
@@ -123,24 +154,19 @@ def qa_op_results(
     Args:
         default_results (DataFrame): Default model results
         final_op_df (DataFrame): DataFrame of functional area pipeline outputs
-        sites (List[str]):
     """
-    if "ALL" not in sites:
-        default_results = default_results.where(F.col("sitetret").isin(sites))
-
     default_grouped = default_results.groupBy("model_run", "pod", "measure").agg(
         F.sum("value").alias("value")
     )
-
     # Define what we want to check
     checks = {
-        "outpatient_virtual_attendances": (
+        "op_virtual_attendances": (
             ["op_first", "op_follow-up"],
             ["tele_attendances"],
         ),
-        "outpatient_procedures": (["op_procedure"], ["attendances"]),
-        "outpatient_first_attendances": (["op_first"], ["attendances"]),
-        "outpatient_followup_attendances": (["op_follow-up"], ["attendances"]),
+        "op_procedures": (["op_procedure"], ["attendances"]),
+        "op_first_attendances": (["op_first"], ["attendances"]),
+        "op_follow_up_attendances": (["op_follow-up"], ["attendances"]),
     }
 
     default_means = {}
@@ -174,3 +200,4 @@ def qa_op_results(
         print(
             f"Aggregated results are not aligned with default model results. Check {key}"
         )
+        raise

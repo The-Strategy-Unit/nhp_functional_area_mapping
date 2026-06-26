@@ -73,12 +73,15 @@ def create_aae_groupings(df: DataFrame) -> DataFrame:
     return df
 
 
-def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
+def process_sdec_converted(
+    db_path_to_full_model_results: str, sites: List[str]
+) -> DataFrame:
     """Processes the activity converted from IP to SDEC, adding functional area grouping column and
     aggregating by model run and grouping
 
     Args:
         db_path_to_full_model_results (str): Path to location of full model results on Databricks
+        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Activity converted from IP to SDEC, with functional area grouping column
@@ -86,6 +89,8 @@ def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
     sdec_converted = spark.read.parquet(
         db_path_to_full_model_results + "sdec_conversion"
     ).withColumn("grouping", F.lit("sdec_attendances"))
+    if "ALL" not in sites:
+        sdec_converted = sdec_converted.where(F.col("sitetret").isin(sites))
     sdec_groupings_per_run = sdec_converted.groupBy("model_run", "grouping").agg(
         F.sum("arrivals").alias("total")
     )
@@ -146,7 +151,6 @@ def process_aae(
 def qa_aae_results(
     default_results: DataFrame,
     final_aae_df: DataFrame,
-    sites: List[str],
 ):
     """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
     aggregations as with default model results.
@@ -154,10 +158,7 @@ def qa_aae_results(
     Args:
         default_results (DataFrame): Default model results
         final_aae_df (DataFrame): DataFrame of functional area pipeline outputs
-        sites (List[str]):
     """
-    if "ALL" not in sites:
-        default_results = default_results.where(F.col("sitetret").isin(sites))
     default_results = default_results.filter(
         F.col("pod").isin(["aae_type-01", "aae_type-05"])
     )  # functional areas only use type 01 and type 05

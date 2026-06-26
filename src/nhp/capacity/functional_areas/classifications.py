@@ -35,3 +35,25 @@ def class_ae_minor() -> Column:
 
 def class_sdec() -> Column:
     return F.col("aedepttype") == "05"
+
+
+def class_op_first() -> Column:
+
+    return ~F.col("has_procedures") & F.col("is_first")
+
+
+def class_op_follow_up() -> Column:
+
+    return ~F.col("has_procedures") & ~F.col("is_first")
+
+
+def class_has_procedure() -> Column:
+    return F.col("has_procedures")
+
+
+def class_op_virtual() -> Column:
+    return F.col("tele_attendances")
+
+
+def class_op_face_to_face() -> Column:
+    return F.col("attendances")
