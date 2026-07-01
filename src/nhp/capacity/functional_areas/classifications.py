@@ -57,3 +57,19 @@ def class_op_virtual() -> Column:
 
 def class_op_face_to_face() -> Column:
     return F.col("attendances")
+
+
+def class_renal() -> Column:
+    return F.col("tretspef") == "361"
+
+
+def class_elective() -> Column:
+    return F.col("admimeth").startswith("1") & F.col("classpat") == "1"
+
+
+def class_zero_los() -> Column:
+    return F.col("speldur") == 0
+
+
+def class_regular_day_night() -> Column:
+    return F.col("classpat").isin("3", "4")

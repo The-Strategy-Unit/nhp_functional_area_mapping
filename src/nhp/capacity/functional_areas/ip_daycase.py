@@ -4,9 +4,23 @@ import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
 
+from nhp.capacity.functional_areas.classifications import (
+    class_elective,
+    class_regular_day_night,
+    class_renal,
+    class_zero_los,
+)
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
+
+
+def is_renal_elective():
+    return class_renal() & class_elective() & class_zero_los()
+
+
+def is_renal_regular_day_night():
+    return class_renal() & class_regular_day_night()
 
 
 def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
@@ -18,35 +32,13 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
     Returns:
         DataFrame: IP data, aggregated by daycase functional areas
     """
-    daycase_only = ip_data.filter(
-        F.col("admimeth").like("1%") & (F.col("classpat") == 2)
+    df = ip_data.withColumn(
+        "grouping",
+        F.when(
+            is_renal_elective() | is_renal_regular_day_night(), "daycase_renal_spells"
+        ),
     )
-    df_with_grouping = (
-        daycase_only.withColumn(
-            "grouping",
-            F.when(
-                (F.col("tretspef_type") == "Surgical") & (F.col("admiage") > 17),
-                "adult_surgical_daycase",
-            )
-            .when(
-                (F.col("tretspef_type") == "Medical/Other") & (F.col("admiage") > 17),
-                "adult_medical_daycase",
-            )
-            .when(
-                (F.col("tretspef_type") == "Surgical") & (F.col("admiage") <= 17),
-                "paediatric_surgical_daycase",
-            )
-            .when(
-                (F.col("tretspef_type") == "Medical/Other") & (F.col("admiage") <= 17),
-                "paediatric_medical_daycase",
-            )
-            .when((F.col("admiage") > 17), "adult_unknown_daycase")
-            .when((F.col("admiage") <= 17), "paediatric_unknown_daycase"),
-        )
-        .groupby("grouping", "model_run")
-        .agg(F.count("rn").alias("total"))
-    )
-    return df_with_grouping
+    return df
 
 
 def process_ip_daycase(
