@@ -105,7 +105,7 @@ def class_renal() -> Column:
 
 
 def class_elective() -> Column:
-    return F.col("admimeth").startswith("1") & F.col("classpat") == "1"
+    return (F.col("admimeth").startswith("1")) & (F.col("classpat") == "1")
 
 
 def class_zero_los() -> Column:
