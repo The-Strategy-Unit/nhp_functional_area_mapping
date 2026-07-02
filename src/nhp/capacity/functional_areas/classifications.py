@@ -85,12 +85,10 @@ def class_sdec() -> Column:
 
 
 def class_op_first() -> Column:
-
     return ~F.col("has_procedures") & F.col("is_first")
 
 
 def class_op_follow_up() -> Column:
-
     return ~F.col("has_procedures") & ~F.col("is_first")
 
 
@@ -119,7 +117,7 @@ def class_regular_day_night() -> Column:
 
 
 def class_daycase() -> Column:
-    return (F.col("admimeth") == "1") & (F.col("classpat") == "2")
+    return (F.col("admimeth").isin("11", "12", "13")) & (F.col("classpat") == "2")
 
 
 def class_haem_onc() -> Column:
@@ -128,3 +126,11 @@ def class_haem_onc() -> Column:
 
 def class_endoscopy() -> Column:
     return F.col("primary_procedure").substr(1, 3).isin(ENDOSCOPY_PROCEDURE_CODES)
+
+
+def class_medical() -> Column:
+    return F.col("tretspef_type") == "Surgical"
+
+
+def class_surgical() -> Column:
+    return F.col("tretspef_type") == "Medical/Other"

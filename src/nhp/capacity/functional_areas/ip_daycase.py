@@ -6,12 +6,16 @@ from pyspark.sql import DataFrame
 from pyspark.sql.column import Column
 
 from nhp.capacity.functional_areas.classifications import (
+    class_age_adult,
+    class_age_child,
     class_daycase,
     class_elective,
     class_endoscopy,
     class_haem_onc,
+    class_medical,
     class_regular_day_night,
     class_renal,
+    class_surgical,
     class_zero_los,
 )
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
@@ -40,6 +44,22 @@ def is_daycase_endoscopy():
     return class_daycase() & class_endoscopy()
 
 
+def is_daycase_adult_medical():
+    return class_daycase() & class_age_adult() & class_medical()
+
+
+def is_daycase_adult_surgical():
+    return class_daycase() & class_age_adult() & class_surgical()
+
+
+def is_daycase_child_medical():
+    return class_daycase() & class_age_child() & class_medical()
+
+
+def is_daycase_child_surgical():
+    return class_daycase() & class_age_child() & class_surgical()
+
+
 def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
     """Adds "grouping" column to the IP data with the functional areas for IP daycase
 
@@ -55,7 +75,11 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
             is_renal_elective() | is_renal_regular_day_night(), "daycase_renal_spells"
         )
         .when(is_daycase_haem_onc(), "daycase_haem_onc_spells")
-        .when(is_daycase_endoscopy(), "daycase_endoscopy_spells"),
+        .when(is_daycase_endoscopy(), "daycase_endoscopy_spells")
+        .when(is_daycase_adult_medical(), "daycase_adult_medical_spells")
+        .when(is_daycase_adult_surgical(), "daycase_adult_surgical_spells")
+        .when(is_daycase_child_medical(), "daycase_child_medical_spells")
+        .when(is_daycase_child_surgical(), "daycase_child_surgical_spells"),
     )
     return df
 
@@ -84,12 +108,12 @@ def process_ip_daycase(
     )
     # Add missing groupings - we need all groupings to be present in all model runs even if value is 0
     required_ip_groupings = [
-        "adult_surgical_daycase",
-        "adult_medical_daycase",
-        "paediatric_surgical_daycase",
-        "paediatric_medical_daycase",
-        "adult_unknown_daycase",
-        "paediatric_unknown_daycase",
+        "daycase_haem_onc_spells",
+        "daycase_endoscopy_spells",
+        "daycase_adult_medical_spells",
+        "daycase_adult_surgical_spells",
+        "daycase_child_medical_spells",
+        "daycase_child_surgical_spells",
     ]
     final_df = add_missing_groupings(
         final_groupings_per_run_with_baseline, required_ip_groupings
