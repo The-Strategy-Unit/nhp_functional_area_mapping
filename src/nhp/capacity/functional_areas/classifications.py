@@ -47,8 +47,13 @@ def class_op_follow_up() -> Column:
     return ~F.col("has_procedures") & ~F.col("is_first")
 
 
-def class_has_procedure() -> Column:
-    return F.col("has_procedures")
+def class_has_procedure(df: DataFrame) -> Column:
+    if "has_procedures" in df.columns:
+        return F.col("has_procedures")
+    elif "has_procedure" in df.columns:
+        return F.col("has_procedure")
+    else:
+        raise ValueError("Neither has_procedure nor has_procedures found")
 
 
 def class_op_virtual() -> Column:
@@ -73,3 +78,11 @@ def class_zero_los() -> Column:
 
 def class_regular_day_night() -> Column:
     return F.col("classpat").isin("3", "4")
+
+
+def class_daycase() -> Column:
+    return (F.col("admimeth") == "1") & (F.col("classpat") == "2")
+
+
+def class_haem_onc() -> Column:
+    return F.col("tretspef").isin("253", "303", "260", "370", "800")

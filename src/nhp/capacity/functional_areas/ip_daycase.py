@@ -3,9 +3,12 @@ from typing import List
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
+from pyspark.sql.column import Column
 
 from nhp.capacity.functional_areas.classifications import (
+    class_daycase,
     class_elective,
+    class_haem_onc,
     class_regular_day_night,
     class_renal,
     class_zero_los,
@@ -15,12 +18,20 @@ from nhp.capacity.functional_areas.processing_helpers import add_missing_groupin
 spark = DatabricksSession.builder.getOrCreate()
 
 
+def class_has_procedure() -> Column:
+    return F.col("has_procedure")
+
+
 def is_renal_elective():
     return class_renal() & class_elective() & class_zero_los()
 
 
 def is_renal_regular_day_night():
     return class_renal() & class_regular_day_night()
+
+
+def is_daycase_haem_onc():
+    return class_daycase() & class_haem_onc() & class_has_procedure()
 
 
 def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
@@ -36,7 +47,7 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
         "grouping",
         F.when(
             is_renal_elective() | is_renal_regular_day_night(), "daycase_renal_spells"
-        ),
+        ).when(is_daycase_haem_onc(), "daycase_haem_onc_spells"),
     )
     return df
 
