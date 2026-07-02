@@ -44,20 +44,37 @@ def is_daycase_endoscopy():
     return class_daycase() & class_endoscopy()
 
 
+def is_specialty_daycase():
+    return (
+        is_renal_elective()
+        | is_renal_regular_day_night()
+        | is_daycase_haem_onc()
+        | is_daycase_endoscopy()
+    )
+
+
 def is_daycase_adult_medical():
-    return class_daycase() & class_age_adult() & class_medical()
+    return (
+        class_daycase() & class_age_adult() & class_medical() & ~is_specialty_daycase()
+    )
 
 
 def is_daycase_adult_surgical():
-    return class_daycase() & class_age_adult() & class_surgical()
+    return (
+        class_daycase() & class_age_adult() & class_surgical() & ~is_specialty_daycase()
+    )
 
 
 def is_daycase_child_medical():
-    return class_daycase() & class_age_child() & class_medical()
+    return (
+        class_daycase() & class_age_child() & class_medical() & ~is_specialty_daycase()
+    )
 
 
 def is_daycase_child_surgical():
-    return class_daycase() & class_age_child() & class_surgical()
+    return (
+        class_daycase() & class_age_child() & class_surgical() & ~is_specialty_daycase()
+    )
 
 
 def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
