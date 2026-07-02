@@ -86,17 +86,22 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
     Returns:
         DataFrame: IP data, aggregated by daycase functional areas
     """
-    df = ip_data.withColumn(
-        "grouping",
-        F.when(
-            is_renal_elective() | is_renal_regular_day_night(), "daycase_renal_spells"
+    df = (
+        ip_data.withColumn(
+            "grouping",
+            F.when(
+                is_renal_elective() | is_renal_regular_day_night(),
+                "daycase_renal_spells",
+            )
+            .when(is_daycase_haem_onc(), "daycase_haem_onc_spells")
+            .when(is_daycase_endoscopy(), "daycase_endoscopy_spells")
+            .when(is_daycase_adult_medical(), "daycase_adult_medical_spells")
+            .when(is_daycase_adult_surgical(), "daycase_adult_surgical_spells")
+            .when(is_daycase_child_medical(), "daycase_child_medical_spells")
+            .when(is_daycase_child_surgical(), "daycase_child_surgical_spells"),
         )
-        .when(is_daycase_haem_onc(), "daycase_haem_onc_spells")
-        .when(is_daycase_endoscopy(), "daycase_endoscopy_spells")
-        .when(is_daycase_adult_medical(), "daycase_adult_medical_spells")
-        .when(is_daycase_adult_surgical(), "daycase_adult_surgical_spells")
-        .when(is_daycase_child_medical(), "daycase_child_medical_spells")
-        .when(is_daycase_child_surgical(), "daycase_child_surgical_spells"),
+        .groupby("grouping", "model_run")
+        .agg(F.count("rn").alias("total"))
     )
     return df
 
