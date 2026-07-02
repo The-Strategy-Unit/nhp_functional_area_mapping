@@ -1,5 +1,3 @@
-from typing import List
-
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -141,41 +139,3 @@ def process_ip_daycase(
         final_groupings_per_run_with_baseline, required_ip_groupings
     )
     return final_df
-
-
-def qa_ip_daycase_results(
-    default_results: DataFrame, final_ip_daycase_df: DataFrame, sites: List[str]
-):
-    """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
-    aggregations as with default model results.
-
-    Args:
-        default_results (DataFrame): Default model results
-        final_ip_daycase_df (DataFrame): DataFrame of functional area pipeline outputs
-        sites (List[str]):
-    """
-    if "ALL" not in sites:
-        default_results = default_results.where((F.col("sitetret").isin(sites)))
-    default_results = default_results.where(
-        (F.col("pod").like("%daycase%")) & (F.col("measure") == "admissions")
-    )
-    default_results_value = (
-        default_results.groupBy("model_run")
-        .agg(F.sum("value").alias("value"))
-        .agg(F.mean("value").alias("mean"))
-        .collect()[0][0]
-    )
-    grouped_results_value = (
-        final_ip_daycase_df.filter(F.col("model_run") != 0)  # model_run 0 is baseline
-        .groupBy("model_run")
-        .agg(F.sum("total").alias("total"))
-        .agg(F.mean("total").alias("mean_total"))
-        .collect()[0][0]
-    )
-    try:
-        assert float(default_results_value) == float(grouped_results_value)
-    except AssertionError:
-        print(
-            "Aggregated results are not aligned with default model results. Check daycase calculations"
-        )
-        raise
