@@ -53,25 +53,37 @@ def is_specialty_daycase():
 
 def is_daycase_adult_medical():
     return (
-        class_daycase() & class_age_adult() & class_medical() & ~is_specialty_daycase()
+        class_daycase()
+        & class_age_adult()
+        & class_medical()
+        & ~F.coalesce(is_specialty_daycase(), F.lit(False))
     )
 
 
 def is_daycase_adult_surgical():
     return (
-        class_daycase() & class_age_adult() & class_surgical() & ~is_specialty_daycase()
+        class_daycase()
+        & class_age_adult()
+        & class_surgical()
+        & ~F.coalesce(is_specialty_daycase(), F.lit(False))
     )
 
 
 def is_daycase_child_medical():
     return (
-        class_daycase() & class_age_child() & class_medical() & ~is_specialty_daycase()
+        class_daycase()
+        & class_age_child()
+        & class_medical()
+        & ~F.coalesce(is_specialty_daycase(), F.lit(False))
     )
 
 
 def is_daycase_child_surgical():
     return (
-        class_daycase() & class_age_child() & class_surgical() & ~is_specialty_daycase()
+        class_daycase()
+        & class_age_child()
+        & class_surgical()
+        & ~F.coalesce(is_specialty_daycase(), F.lit(False))
     )
 
 
