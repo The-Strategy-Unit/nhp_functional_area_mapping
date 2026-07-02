@@ -17,6 +17,7 @@ spark = DatabricksSession.builder.getOrCreate()
 
 
 def class_has_procedure() -> Column:
+    # defined separately because col name differs between OP and IP
     return F.col("has_procedures")
 
 

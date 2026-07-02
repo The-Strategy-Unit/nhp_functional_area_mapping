@@ -8,6 +8,7 @@ from pyspark.sql.column import Column
 from nhp.capacity.functional_areas.classifications import (
     class_daycase,
     class_elective,
+    class_endoscopy,
     class_haem_onc,
     class_regular_day_night,
     class_renal,
@@ -19,6 +20,7 @@ spark = DatabricksSession.builder.getOrCreate()
 
 
 def class_has_procedure() -> Column:
+    # defined separately because col name differs between OP and IP
     return F.col("has_procedure")
 
 
@@ -34,6 +36,10 @@ def is_daycase_haem_onc():
     return class_daycase() & class_haem_onc() & class_has_procedure()
 
 
+def is_daycase_endoscopy():
+    return class_daycase() & class_endoscopy()
+
+
 def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
     """Adds "grouping" column to the IP data with the functional areas for IP daycase
 
@@ -47,7 +53,9 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
         "grouping",
         F.when(
             is_renal_elective() | is_renal_regular_day_night(), "daycase_renal_spells"
-        ).when(is_daycase_haem_onc(), "daycase_haem_onc_spells"),
+        )
+        .when(is_daycase_haem_onc(), "daycase_haem_onc_spells")
+        .when(is_daycase_endoscopy(), "daycase_endoscopy_spells"),
     )
     return df
 

@@ -1,6 +1,53 @@
 import pyspark.sql.functions as F
 from pyspark.sql.column import Column
 
+ENDOSCOPY_PROCEDURE_CODES = [
+    "G14",
+    "G15",
+    "G16",
+    "G17",
+    "G18",
+    "G19",
+    "G20",
+    "G42",
+    "G43",
+    "G44",
+    "G45",
+    "G46",
+    "G54",
+    "G55",
+    "G64",
+    "G65",
+    "G79",
+    "G80",
+    "H23",
+    "H24",
+    "H25",
+    "H26",
+    "H27",
+    "H28",
+    "H37",
+    "H69",
+    "H70",
+    "H71",
+    "J38",
+    "J39",
+    "J40",
+    "J41",
+    "J42",
+    "J43",
+    "J44",
+    "J45",
+    "H20",
+    "H21",
+    "H22",
+    "H68",
+    "E48",
+    "E49",
+    "E50",
+    "E51",
+]
+
 
 def class_age_adult() -> Column:
     return F.col("age") >= 18
@@ -47,15 +94,6 @@ def class_op_follow_up() -> Column:
     return ~F.col("has_procedures") & ~F.col("is_first")
 
 
-def class_has_procedure(df: DataFrame) -> Column:
-    if "has_procedures" in df.columns:
-        return F.col("has_procedures")
-    elif "has_procedure" in df.columns:
-        return F.col("has_procedure")
-    else:
-        raise ValueError("Neither has_procedure nor has_procedures found")
-
-
 def class_op_virtual() -> Column:
     return F.col("tele_attendances")
 
@@ -86,3 +124,7 @@ def class_daycase() -> Column:
 
 def class_haem_onc() -> Column:
     return F.col("tretspef").isin("253", "303", "260", "370", "800")
+
+
+def class_endoscopy() -> Column:
+    return F.col("primary_procedure").substr(1, 3).isin(ENDOSCOPY_PROCEDURE_CODES)
