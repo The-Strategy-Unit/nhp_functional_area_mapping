@@ -3,9 +3,9 @@ from typing import List
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
+from pyspark.sql.column import Column
 
 from nhp.capacity.functional_areas.classifications import (
-    class_has_procedure,
     class_op_face_to_face,
     class_op_first,
     class_op_follow_up,
@@ -14,6 +14,11 @@ from nhp.capacity.functional_areas.classifications import (
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
+
+
+def class_has_procedure() -> Column:
+    # defined separately because col name differs between OP and IP
+    return F.col("has_procedures")
 
 
 def is_op_procedures():
