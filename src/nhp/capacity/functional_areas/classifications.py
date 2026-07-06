@@ -129,8 +129,8 @@ def class_endoscopy() -> Column:
 
 
 def class_medical() -> Column:
-    return F.col("tretspef_type") == "Surgical"
+    return F.col("tretspef_type") == "Medical/Other"
 
 
 def class_surgical() -> Column:
-    return F.col("tretspef_type") == "Medical/Other"
+    return F.col("tretspef_type") == "Surgical"
