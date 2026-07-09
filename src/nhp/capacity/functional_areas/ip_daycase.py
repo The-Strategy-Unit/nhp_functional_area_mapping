@@ -146,6 +146,7 @@ def process_ip_daycase(
         "daycase_adult_surgical_spells",
         "daycase_child_medical_spells",
         "daycase_child_surgical_spells",
+        "daycase_renal_spells",
     ]
     final_df = add_missing_groupings(
         final_groupings_per_run_with_baseline, required_ip_groupings
