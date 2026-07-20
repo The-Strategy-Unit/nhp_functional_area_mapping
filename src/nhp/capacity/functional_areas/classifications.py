@@ -48,6 +48,8 @@ ENDOSCOPY_PROCEDURE_CODES = [
     "E51",
 ]
 
+ASSISTED_BIRTHS_CODES = ["R19", "R20", "R21", "R22", "R23"]
+
 
 def class_age_adult() -> Column:
     return F.col("age") >= 18
@@ -112,6 +114,10 @@ def class_zero_los() -> Column:
     return F.col("speldur") == 0
 
 
+def class_non_zero_los() -> Column:
+    return F.col("speldur") > 0
+
+
 def class_regular_day_night() -> Column:
     return F.col("classpat").isin("3", "4")
 
@@ -134,3 +140,31 @@ def class_medical() -> Column:
 
 def class_surgical() -> Column:
     return F.col("tretspef_type") == "Surgical"
+
+
+def class_maternity() -> Column:
+    return F.col("group") == "maternity"
+
+
+def class_birth_event() -> Column:
+    return F.col("maternity_delivery_in_spell")
+
+
+def class_birth_normal() -> Column:
+    return F.col("primary_procedure").substr(1, 3) == "R24"
+
+
+def class_birth_assisted() -> Column:
+    return F.col("primary_procedure").substr(1, 3).isin(ASSISTED_BIRTHS_CODES)
+
+
+def class_birth_nonelective_c_section() -> Column:
+    return F.col("primary_procedure").substr(1, 3) == "R18"
+
+
+def class_no_birth_flag() -> Column:
+    return ~F.col("maternity_delivery_in_spell")
+
+
+def class_birth_elective_csection() -> Column:
+    return F.col("primary_procedure").substr(1, 3) == "R17"
