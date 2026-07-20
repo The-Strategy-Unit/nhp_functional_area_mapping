@@ -43,13 +43,13 @@ def is_overnight_no_birth_event():
 
 
 def create_ip_maternity_groupings(ip_data: DataFrame) -> DataFrame:
-    """Adds "grouping" column to the IP data with the functional areas for IP daycase
+    """Adds "grouping" column to the IP data with the functional areas for IP maternity
 
     Args:
         ip_data (DataFrame): IP data
 
     Returns:
-        DataFrame: IP data, aggregated by daycase functional areas
+        DataFrame: IP data, aggregated by maternity functional areas
     """
     df = (
         ip_data.withColumn(
@@ -67,10 +67,10 @@ def create_ip_maternity_groupings(ip_data: DataFrame) -> DataFrame:
     return df
 
 
-def process_ip_daycase(
+def process_ip_maternity(
     ip_original_mapped: DataFrame, ip_model_results: DataFrame
 ) -> DataFrame:
-    """Processes and aggregates the IP baseline and model results to produce functional area outputs for IP daycase,
+    """Processes and aggregates the IP baseline and model results to produce functional area outputs for IP maternity,
     aggregated by model run and grouping.
 
     Args:
@@ -78,7 +78,7 @@ def process_ip_daycase(
         ip_model_results (DataFrame): IP full model results
 
     Returns:
-        DataFrame: IP data for each of the model runs aggregated into functional areas for daycase
+        DataFrame: IP data for each of the model runs aggregated into functional areas for maternity
     """
     baseline_grouped = create_ip_maternity_groupings(ip_original_mapped)
     groupings_per_run = create_ip_maternity_groupings(
