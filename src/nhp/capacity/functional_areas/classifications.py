@@ -162,7 +162,7 @@ def class_birth_nonelective_c_section() -> Column:
     return F.col("primary_procedure").substr(1, 3) == "R18"
 
 
-def class_no_birth_flag() -> Column:
+def class_no_birth_event() -> Column:
     return ~F.col("maternity_delivery_in_spell")
 
 
