@@ -55,7 +55,7 @@ def create_ip_maternity_groupings(ip_data: DataFrame) -> DataFrame:
         ip_data.withColumn(
             "grouping",
             F.when(is_normal_delivery(), "maternity_normal_delivery")
-            .when(is_assisted_delivery(), "maternity_assissted_delivery")
+            .when(is_assisted_delivery(), "maternity_assisted_delivery")
             .when(is_maternity_assessment(), "maternity_assessment")
             .when(is_nonelective_csection(), "maternity_nonelective_csection")
             .when(is_elective_csection(), "maternity_elective_csection")
