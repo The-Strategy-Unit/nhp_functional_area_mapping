@@ -18,24 +18,80 @@ from nhp.capacity.functional_areas.processing_helpers import add_missing_groupin
 spark = DatabricksSession.builder.getOrCreate()
 
 
-def is_normal_delivery():
-    return class_maternity() & class_birth_event() & class_birth_normal()
+def is_normal_delivery_nonzerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_normal()
+        & class_non_zero_los()
+    )
 
 
-def is_assisted_delivery():
-    return class_maternity() & class_birth_event() & class_birth_assisted()
+def is_normal_delivery_zerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_normal()
+        & class_zero_los()
+    )
+
+
+def is_assisted_delivery_nonzerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_assisted()
+        & class_non_zero_los()
+    )
+
+
+def is_assisted_delivery_zerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_assisted()
+        & class_zero_los()
+    )
 
 
 def is_maternity_assessment():
     return class_maternity() & class_zero_los() & class_no_birth_event()
 
 
-def is_nonelective_csection():
-    return class_maternity() & class_birth_event() & class_birth_nonelective_c_section()
+def is_nonelective_csection_nonzerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_nonelective_c_section()
+        & class_non_zero_los()
+    )
 
 
-def is_elective_csection():
-    return class_maternity() & class_birth_event() & class_birth_elective_csection()
+def is_nonelective_csection_zerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_nonelective_c_section()
+        & class_zero_los()
+    )
+
+
+def is_elective_csection_nonzerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_elective_csection()
+        & class_non_zero_los()
+    )
+
+
+def is_elective_csection_zerolos():
+    return (
+        class_maternity()
+        & class_birth_event()
+        & class_birth_elective_csection()
+        & class_zero_los()
+    )
 
 
 def is_overnight_no_birth_event():
@@ -54,15 +110,33 @@ def create_ip_maternity_groupings(ip_data: DataFrame) -> DataFrame:
     df = (
         ip_data.withColumn(
             "grouping",
-            F.when(is_normal_delivery(), "maternity_normal_delivery")
-            .when(is_assisted_delivery(), "maternity_assisted_delivery")
+            F.when(is_normal_delivery_zerolos(), "maternity_normal_delivery_zerolos")
+            .when(
+                is_normal_delivery_nonzerolos(), "maternity_normal_delivery_nonzerolos"
+            )
+            .when(is_assisted_delivery_zerolos(), "maternity_assisted_delivery_zerolos")
+            .when(
+                is_assisted_delivery_nonzerolos(),
+                "maternity_assisted_delivery_nonzerolos",
+            )
             .when(is_maternity_assessment(), "maternity_assessment")
-            .when(is_nonelective_csection(), "maternity_nonelective_csection")
-            .when(is_elective_csection(), "maternity_elective_csection")
+            .when(
+                is_nonelective_csection_zerolos(),
+                "maternity_nonelective_csection_zerolos",
+            )
+            .when(
+                is_nonelective_csection_nonzerolos(),
+                "maternity_nonelective_csection_nonzerolos",
+            )
+            .when(is_elective_csection_zerolos(), "maternity_elective_csection_zerolos")
+            .when(
+                is_elective_csection_nonzerolos(),
+                "maternity_elective_csection_nonzerolos",
+            )
             .when(is_overnight_no_birth_event(), "maternity_overnight_no_birth"),
         )
         .groupby("grouping", "model_run")
-        .agg(F.count("rn").alias("total"))
+        .agg(F.count("rn").alias("spells"), F.sum("speldur").alias("beddays"))
     )
     return df
 
@@ -91,11 +165,15 @@ def process_ip_maternity(
     )
     # Add missing groupings - we need all groupings to be present in all model runs even if value is 0
     required_ip_groupings = [
-        "maternity_normal_delivery",
-        "maternity_assisted_delivery",
+        "maternity_normal_delivery_zerolos",
+        "maternity_normal_delivery_nonzerolos",
+        "maternity_assisted_delivery_zerolos",
+        "maternity_assisted_delivery_nonzerolos",
         "maternity_assessment",
-        "maternity_nonelective_csection",
-        "maternity_elective_csection",
+        "maternity_nonelective_csection_zerolos",
+        "maternity_nonelective_csection_nonzerolos",
+        "maternity_elective_csection_zerolos",
+        "maternity_elective_csection_nonzerolos",
         "maternity_overnight_no_birth",
     ]
     final_df = add_missing_groupings(
