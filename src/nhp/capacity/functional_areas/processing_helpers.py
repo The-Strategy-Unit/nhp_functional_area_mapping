@@ -27,8 +27,21 @@ def add_missing_groupings(
     )
     expected = model_runs.crossJoin(required_df)
     completed_required = expected.join(
-        final_groupings_per_run_with_baseline, on=["model_run", "grouping"], how="left"
-    ).withColumn("total", F.coalesce(F.col("total"), F.lit(0)))
+        final_groupings_per_run_with_baseline,
+        on=["model_run", "grouping"],
+        how="left",
+    )
+    # Fill all non-key columns with 0
+    value_columns = [
+        c
+        for c in final_groupings_per_run_with_baseline.columns
+        if c not in {"model_run", "grouping"}
+    ]
+    for col in value_columns:
+        completed_required = completed_required.withColumn(
+            col,
+            F.coalesce(F.col(col), F.lit(0)),
+        )
     non_required = final_groupings_per_run_with_baseline.filter(
         ~F.col("grouping").isin(required_groupings)
     )
