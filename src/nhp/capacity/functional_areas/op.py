@@ -1,5 +1,3 @@
-from typing import List
-
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -54,14 +52,12 @@ def is_op_virtual_attendances():
 
 def process_op_converted(
     db_path_to_full_model_results: str,
-    sites: List[str],
 ) -> DataFrame:
     """Processes the activity converted from IP to OP, adding functional area grouping column and
-    aggregating by model run and grouping
+    aggregating by model run, site, and grouping
 
     Args:
         db_path_to_full_model_results (str): Path to location of full model results on Databricks
-        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Activity converted from IP to OP, with functional area grouping column
@@ -69,24 +65,23 @@ def process_op_converted(
     op_converted = spark.read.parquet(
         db_path_to_full_model_results + "op_conversion"
     ).withColumn("grouping", F.lit("op_procedures"))
-    if "ALL" not in sites:
-        op_converted = op_converted.where(F.col("sitetret").isin(sites))
-    op_converted_groupings_per_run = op_converted.groupBy("model_run", "grouping").agg(
-        F.sum("attendances").alias("total")
-    )
+    op_converted_groupings_per_run = op_converted.groupBy(
+        "model_run", "sitetret", "grouping"
+    ).agg(F.sum("attendances").alias("total"))
     return op_converted_groupings_per_run
 
 
 def create_op_groupings(df: DataFrame) -> DataFrame:
     """Calculates outpatients (OP) groupings and aggregates total for each grouping in each model run
+    and site
 
     Args:
         df (DataFrame): OP data
 
     Returns:
-        DataFrame: Aggregated OP data with sum of attendances by grouping and model run
+        DataFrame: Aggregated OP data with sum of attendances by grouping, model run, and site
     """
-    agg_df = df.groupBy("model_run").agg(
+    agg_df = df.groupBy("model_run", "sitetret").agg(
         is_op_procedures().alias("op_procedures"),
         is_op_first_attendances().alias("op_first_attendances"),
         is_op_follow_up_attendances().alias("op_follow_up_attendances"),
@@ -104,7 +99,9 @@ def create_op_groupings(df: DataFrame) -> DataFrame:
         mapping += [F.lit(c), F.col(c)]
 
     return agg_df.select(
-        "model_run", F.explode(F.create_map(*mapping)).alias("grouping", "total")
+        "model_run",
+        "sitetret",
+        F.explode(F.create_map(*mapping)).alias("grouping", "total"),
     )
 
 
@@ -112,7 +109,7 @@ def process_op(
     op_original: DataFrame, op_model_results: DataFrame, op_converted: DataFrame
 ) -> DataFrame:
     """Processes and aggregates the OP baseline and model results to produce functional area outputs,
-    aggregated by model run and grouping.
+    aggregated by model run, site, and grouping.
 
     Args:
         op_original (DataFrame): Baseline OP data
@@ -120,7 +117,7 @@ def process_op(
         op_converted (DataFrame): OP activity converted from inpatients in modelling process due to TPMAs
 
     Returns:
-        DataFrame: OP data for each of the model runs aggregated into functional areas
+        DataFrame: OP data for each of the model runs and sites aggregated into functional areas
     """
     baseline_grouped = create_op_groupings(op_original)
     groupings_per_run = create_op_groupings(
@@ -130,13 +127,13 @@ def process_op(
     )
     groupings_per_run_with_op_converted = (
         groupings_per_run.unionByName(op_converted)
-        .groupBy("model_run", "grouping")
+        .groupBy("model_run", "sitetret", "grouping")
         .agg(F.sum("total").alias("total"))
     )
     final_groupings_per_run_with_baseline = (
         groupings_per_run_with_op_converted.unionByName(baseline_grouped)
     )
-    # # Add missing groupings - we need all groupings to be present in all model runs even if value is 0
+    # Add missing groupings - we need all groupings to be present in all model runs/sites even if value is 0
     required_op_groupings = [
         "op_procedures",
         "op_first_attendances",

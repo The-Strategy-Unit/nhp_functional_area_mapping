@@ -1,5 +1,3 @@
-from typing import List
-
 import pandas as pd
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
@@ -10,7 +8,7 @@ spark = DatabricksSession.builder.getOrCreate()
 
 def add_missing_groupings(
     final_groupings_per_run_with_baseline: DataFrame,
-    required_groupings: List[str],
+    required_groupings: list[str],
 ) -> DataFrame:
     """Add missing functional area groupings into DataFrame, with value 0
 
@@ -19,23 +17,25 @@ def add_missing_groupings(
         required_groupings (list): Full list of all groupings
 
     Returns:
-        DataFrame: DataFrame with required functional area groupings for every run
+        DataFrame: DataFrame with required functional area groupings for every run and site
     """
-    model_runs = final_groupings_per_run_with_baseline.select("model_run").distinct()
+    model_runs_sites = final_groupings_per_run_with_baseline.select(
+        "model_run", "sitetret"
+    ).distinct()
     required_df = spark.createDataFrame(
         [(g,) for g in required_groupings], ["grouping"]
     )
-    expected = model_runs.crossJoin(required_df)
+    expected = model_runs_sites.crossJoin(required_df)
     completed_required = expected.join(
         final_groupings_per_run_with_baseline,
-        on=["model_run", "grouping"],
+        on=["model_run", "sitetret", "grouping"],
         how="left",
     )
     # Fill all non-key columns with 0
     value_columns = [
         c
         for c in final_groupings_per_run_with_baseline.columns
-        if c not in {"model_run", "grouping"}
+        if c not in {"model_run", "sitetret", "grouping"}
     ]
     for col in value_columns:
         completed_required = completed_required.withColumn(
