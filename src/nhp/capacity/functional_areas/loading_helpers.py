@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
@@ -117,7 +116,6 @@ def load_model_data(
     activity_type: str,
     fyear: int,
     provider: str,
-    sites: List[str],
 ) -> DataFrame:
     """Loads original model data. Adds model_run column, setting the value to 0
     for the baseline.
@@ -127,7 +125,6 @@ def load_model_data(
         activity_type (str): Which activity type data to load: op or aae
         fyear (int): Which fyear data to load
         provider (str): Which provider data to load
-        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Pyspark dataframe with original data
@@ -147,8 +144,6 @@ def load_model_data(
         .withColumnRenamed("index", "rn")
         .fillna({"sitetret": "unknown"})
     )
-    if "ALL" not in sites:
-        df = df.where(F.col("sitetret").isin(sites))
     return df
 
 
@@ -181,14 +176,13 @@ def validate_result_path(path_to_full_model_results: str) -> str | None:
 
 
 def load_default_results(
-    db_path_to_full_model_results: str, activity_type: str, sites: List[str]
+    db_path_to_full_model_results: str, activity_type: str
 ) -> DataFrame:
     """Load default results for QA purposes
 
     Args:
         db_path_to_full_model_results (str): Path to full model results folder
         activity_type (str): Activity type (aae, op, or ip)
-        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Default results from model run, filtered to activity type and sites of interest
@@ -200,6 +194,4 @@ def load_default_results(
     default_filtered = default.filter(
         (F.col("pod").like(f"{activity_type}%")) & (F.col("model_run") != 0)
     )
-    if "ALL" not in sites:
-        default_filtered = default_filtered.where(F.col("sitetret").isin(sites))
     return default_filtered
