@@ -110,7 +110,7 @@ def create_ip_daycase_groupings(ip_data: DataFrame) -> DataFrame:
             .when(is_daycase_child_medical(), "daycase_child_medical_spells")
             .when(is_daycase_child_surgical(), "daycase_child_surgical_spells"),
         )
-        .groupby("grouping", "model_run")
+        .groupby("grouping", "sitetret", "model_run")
         .agg(F.count("rn").alias("total"))
     )
     return df
