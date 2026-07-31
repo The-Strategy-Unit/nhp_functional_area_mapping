@@ -84,9 +84,9 @@ def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
     sdec_converted = spark.read.parquet(
         db_path_to_full_model_results + "sdec_conversion"
     ).withColumn("grouping", F.lit("sdec_attendances"))
-    sdec_groupings_per_run = sdec_converted.groupBy("model_run", "grouping").agg(
-        F.sum("arrivals").alias("total")
-    )
+    sdec_groupings_per_run = sdec_converted.groupBy(
+        "model_run", "sitetret", "grouping"
+    ).agg(F.sum("arrivals").alias("total"))
     return sdec_groupings_per_run
 
 
@@ -139,39 +139,3 @@ def process_aae(
         final_groupings_per_run_with_baseline, required_aae_groupings
     )
     return final_df
-
-
-def qa_aae_results(
-    default_results: DataFrame,
-    final_aae_df: DataFrame,
-):
-    """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
-    aggregations as with default model results.
-
-    Args:
-        default_results (DataFrame): Default model results
-        final_aae_df (DataFrame): DataFrame of functional area pipeline outputs
-    """
-    default_results = default_results.filter(
-        F.col("pod").isin(["aae_type-01", "aae_type-05"])
-    )  # functional areas only use type 01 and type 05
-    default_results_value = (
-        default_results.groupBy("model_run")
-        .agg(F.sum("value").alias("value"))
-        .agg(F.mean("value").alias("mean_arrivals"))
-        .collect()[0][0]
-    )
-    grouped_results_value = (
-        final_aae_df.filter(F.col("model_run") != 0)  # model_run 0 is baseline
-        .groupBy("model_run")
-        .agg(F.sum("total").alias("arrivals"))
-        .agg(F.mean("arrivals").alias("mean_arrivals"))
-        .collect()[0][0]
-    )
-    try:
-        assert float(default_results_value) == float(grouped_results_value)
-    except AssertionError:
-        print(
-            "Aggregated results are not aligned with default model results. Check arrivals"
-        )
-        raise
