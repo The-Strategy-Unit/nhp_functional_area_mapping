@@ -108,8 +108,9 @@ def class_renal() -> Column:
 
 def class_non_elective() -> Column:
     return (
-        F.col("admimeth").startswith("2") & (F.col("classpat") == "1") & F.col("group")
-        != "maternity"
+        (F.col("admimeth").startswith("2"))
+        & (F.col("classpat") == "1")
+        & (F.col("group") != "maternity")
     )
 
 
