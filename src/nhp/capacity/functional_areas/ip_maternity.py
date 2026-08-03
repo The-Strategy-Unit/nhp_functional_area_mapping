@@ -135,7 +135,7 @@ def create_ip_maternity_groupings(ip_data: DataFrame) -> DataFrame:
             )
             .when(is_overnight_no_birth_event(), "maternity_overnight_no_birth"),
         )
-        .groupby("grouping", "model_run")
+        .groupby("grouping", "sitetret", "model_run")
         .agg(F.count("rn").alias("spells"), F.sum("speldur").alias("beddays"))
     )
     return df

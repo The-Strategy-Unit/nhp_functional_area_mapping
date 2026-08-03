@@ -1,5 +1,3 @@
-from typing import List
-
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
@@ -73,15 +71,12 @@ def create_aae_groupings(df: DataFrame) -> DataFrame:
     return df
 
 
-def process_sdec_converted(
-    db_path_to_full_model_results: str, sites: List[str]
-) -> DataFrame:
+def process_sdec_converted(db_path_to_full_model_results: str) -> DataFrame:
     """Processes the activity converted from IP to SDEC, adding functional area grouping column and
     aggregating by model run and grouping
 
     Args:
         db_path_to_full_model_results (str): Path to location of full model results on Databricks
-        sites (List[str]): Which sites to filter results to
 
     Returns:
         DataFrame: Activity converted from IP to SDEC, with functional area grouping column
@@ -89,11 +84,9 @@ def process_sdec_converted(
     sdec_converted = spark.read.parquet(
         db_path_to_full_model_results + "sdec_conversion"
     ).withColumn("grouping", F.lit("sdec_attendances"))
-    if "ALL" not in sites:
-        sdec_converted = sdec_converted.where(F.col("sitetret").isin(sites))
-    sdec_groupings_per_run = sdec_converted.groupBy("model_run", "grouping").agg(
-        F.sum("arrivals").alias("total")
-    )
+    sdec_groupings_per_run = sdec_converted.groupBy(
+        "model_run", "sitetret", "grouping"
+    ).agg(F.sum("arrivals").alias("total"))
     return sdec_groupings_per_run
 
 
@@ -103,7 +96,7 @@ def process_aae(
     sdec_groupings_per_run: DataFrame,
 ) -> DataFrame:
     """Processes and aggregates the A&E baseline and model results to produce functional area outputs,
-    aggregated by model run and grouping.
+    aggregated by model run, sites and grouping.
 
     Args:
         aae_original (DataFrame): Baseline A&E data
@@ -111,23 +104,23 @@ def process_aae(
         sdec_groupings_per_run (DataFrame): A&E SDEC activity converted from inpatients in modelling process
 
     Returns:
-        DataFrame: A&E data for each of the model runs aggregated into functional areas
+        DataFrame: A&E data for each of the model runs aggregated into functional areas and sites
     """
     baseline_grouped = (
         create_aae_groupings(aae_original)
-        .groupBy("model_run", "grouping")
+        .groupBy("model_run", "sitetret", "grouping")
         .agg(F.sum("arrivals").alias("total"))
     )
     groupings_per_run = (
         create_aae_groupings(aae_original)
         .drop("model_run", "arrivals")
         .join(aae_model_results, on="rn", how="left")
-        .groupBy("model_run", "grouping")
+        .groupBy("model_run", "sitetret", "grouping")
         .agg(F.sum("arrivals").alias("total"))
     )
     groupings_per_run_with_sdec = (
         groupings_per_run.unionByName(sdec_groupings_per_run)
-        .groupBy("model_run", "grouping")
+        .groupBy("model_run", "sitetret", "grouping")
         .agg(F.sum("total").alias("total"))
     )
     final_groupings_per_run_with_baseline = groupings_per_run_with_sdec.unionByName(
@@ -146,39 +139,3 @@ def process_aae(
         final_groupings_per_run_with_baseline, required_aae_groupings
     )
     return final_df
-
-
-def qa_aae_results(
-    default_results: DataFrame,
-    final_aae_df: DataFrame,
-):
-    """Quality Assurance step: checks that values in a given column produce the same mean in new functional area
-    aggregations as with default model results.
-
-    Args:
-        default_results (DataFrame): Default model results
-        final_aae_df (DataFrame): DataFrame of functional area pipeline outputs
-    """
-    default_results = default_results.filter(
-        F.col("pod").isin(["aae_type-01", "aae_type-05"])
-    )  # functional areas only use type 01 and type 05
-    default_results_value = (
-        default_results.groupBy("model_run")
-        .agg(F.sum("value").alias("value"))
-        .agg(F.mean("value").alias("mean_arrivals"))
-        .collect()[0][0]
-    )
-    grouped_results_value = (
-        final_aae_df.filter(F.col("model_run") != 0)  # model_run 0 is baseline
-        .groupBy("model_run")
-        .agg(F.sum("total").alias("arrivals"))
-        .agg(F.mean("arrivals").alias("mean_arrivals"))
-        .collect()[0][0]
-    )
-    try:
-        assert float(default_results_value) == float(grouped_results_value)
-    except AssertionError:
-        print(
-            "Aggregated results are not aligned with default model results. Check arrivals"
-        )
-        raise
