@@ -106,6 +106,13 @@ def class_renal() -> Column:
     return F.col("tretspef") == "361"
 
 
+def class_non_elective() -> Column:
+    return (
+        F.col("admimeth").startswith("2") & (F.col("classpat") == "1") & F.col("group")
+        != "maternity"
+    )
+
+
 def class_elective() -> Column:
     return (F.col("admimeth").startswith("1")) & (F.col("classpat") == "1")
 
