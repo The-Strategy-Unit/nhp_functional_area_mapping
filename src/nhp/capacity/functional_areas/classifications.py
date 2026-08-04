@@ -176,3 +176,7 @@ def class_no_birth_event() -> Column:
 
 def class_birth_elective_csection() -> Column:
     return F.col("primary_procedure").substr(1, 3) == "R17"
+
+
+def class_has_procedure() -> Column:
+    return F.col("has_procedure")
