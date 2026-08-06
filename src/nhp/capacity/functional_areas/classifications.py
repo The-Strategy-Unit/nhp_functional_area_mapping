@@ -50,6 +50,8 @@ ENDOSCOPY_PROCEDURE_CODES = [
 
 ASSISTED_BIRTHS_CODES = ["R19", "R20", "R21", "R22", "R23"]
 
+CARDIAC_PROCEDURE_CODES = ["K63", "K75", "K60", "K62", "K59", "K57", "K73", "K49"]
+
 
 def class_age_adult() -> Column:
     return F.col("age") >= 18
@@ -176,6 +178,18 @@ def class_no_birth_event() -> Column:
 
 def class_birth_elective_csection() -> Column:
     return F.col("primary_procedure").substr(1, 3) == "R17"
+
+
+def class_cardiology() -> Column:
+    return F.col("tretspef").isin(["320", "321"])
+
+
+def class_cardiac_cath() -> Column:
+    return F.col("primary_procedure").substr(1, 3).isin(CARDIAC_PROCEDURE_CODES)
+
+
+def class_int_radiology() -> Column:
+    return F.col("tretspef").isin(["811", "280"])
 
 
 def class_has_procedure() -> Column:
