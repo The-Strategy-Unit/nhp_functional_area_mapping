@@ -7,15 +7,18 @@ from pyspark.sql.column import Column
 from nhp.capacity.functional_areas.classifications import (
     class_age_adult,
     class_age_child,
+    class_cardiac_cath,
+    class_cardiology,
     class_daycase,
     class_elective,
     class_has_procedure,
+    class_int_radiology,
     class_non_elective,
     class_surgical,
 )
+from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
-from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 
 def load_theatre_times(path_to_file: str) -> DataFrame:
@@ -85,6 +88,22 @@ def is_paediatric_daycase_procedures() -> Column:
     return class_age_child() & class_daycase() & class_has_procedure()
 
 
+def is_cardiology():
+    return class_cardiology() & class_has_procedure()
+
+
+def is_catheter_procedure():
+    return class_has_procedure() & class_cardiac_cath()
+
+
+def is_cardiac_catheter_procedure():
+    return is_cardiology() | is_catheter_procedure()
+
+
+def is_int_radiology_proc():
+    return class_int_radiology() & class_has_procedure()
+
+
 GROUPINGS = [
     (
         "adult_elective_surgical_procedures",
@@ -113,45 +132,52 @@ GROUPINGS = [
 ]
 
 
-def build_ip_theatres_grouping_column():
-    """Builds the F.when(...).when(...)... chain for IP theatres"""
+def build_ip_procedures_and_theatres_grouping_column():
+    """Builds the F.when(...).when(...)... chain for IP procedures and theatres.
 
-    when_chain = None
+    Interventional radiology and cardiac catheter procedures are checked first,
+    since they are mutually exclusive with the surgical theatre groupings. Any
+    record not matching those falls through to the theatre groupings chain.
+    """
+
+    when_chain = F.when(
+        is_int_radiology_proc(), "interventional_radiology_procedure"
+    ).when(is_cardiac_catheter_procedure(), "cardiac_catheter_procedure")
 
     for label, predicate_fn in GROUPINGS:
-        if when_chain is None:
-            when_chain = F.when(
+        when_chain = (
+            when_chain.when(
                 predicate_fn & is_unknown_time(),
                 f"{label}_unknown_time",
-            ).when(
+            )
+            .when(
                 predicate_fn,
                 label,
             )
-        else:
-            when_chain = when_chain.when(
-                predicate_fn & is_unknown_time(),
-                f"{label}_unknown_time",
-            ).when(
-                predicate_fn,
-                label,
-            )
+            .otherwise("unknown_procedure")
+        )
     return when_chain
 
 
-def create_ip_theatres_groupings(ip_data_with_theatre_time: DataFrame) -> DataFrame:
-    """Adds "grouping" column to the IP data with the functional areas for IP theatres
+def create_ip_procedures_and_theatres_groupings(
+    ip_data_with_theatre_time: DataFrame,
+) -> DataFrame:
+    """Adds "grouping" column to the IP data with the functional areas for both
+    IP procedures (interventional radiology, cardiac catheter) and IP theatres.
+    Procedure groupings take priority as they are mutually exclusive with the
+    theatre groupings.
 
     Args:
         ip_data_with_theatre_time (DataFrame): IP data with theatre time column added
 
     Returns:
-        DataFrame: IP data, aggregated by theatres functional areas
+        DataFrame: IP data, aggregated by combined functional areas
     """
     df = (
         ip_data_with_theatre_time.withColumn(
-            "grouping", build_ip_theatres_grouping_column()
+            "procedure_grouping", build_ip_procedures_and_theatres_grouping_column()
         )
-        .groupby("grouping", "sitetret", "model_run")
+        .groupby("procedure_grouping", "sitetret", "model_run")
         .agg(
             F.count("rn").alias("spells"),
             F.coalesce(
@@ -163,7 +189,7 @@ def create_ip_theatres_groupings(ip_data_with_theatre_time: DataFrame) -> DataFr
     return df
 
 
-def process_ip_theatres(
+def process_ip_procedures_and_theatres(
     ip_original_mapped: DataFrame, ip_model_results: DataFrame, theatre_times: DataFrame
 ) -> DataFrame:
     """Processes and aggregates the IP baseline and model results to produce functional area outputs for IP wards,
@@ -177,14 +203,17 @@ def process_ip_theatres(
     Returns:
         DataFrame: IP data for each of the model runs aggregated into functional areas for theatres
     """
-    ip_data_with_theatre_time = ip_original_mapped.join(
+    ip_procedures_only = ip_original_mapped.filter(class_has_procedure())
+    ip_procedures_with_theatre_time = ip_procedures_only.join(
         theatre_times,
-        ip_original_mapped["primary_procedure"] == theatre_times["opcs_code"],
+        ip_procedures_only["primary_procedure"] == theatre_times["opcs_code"],
         "left",
     )
-    baseline_grouped = create_ip_theatres_groupings(ip_data_with_theatre_time)
-    groupings_per_run = create_ip_theatres_groupings(
-        ip_data_with_theatre_time.drop("speldur", "classpat", "model_run").join(
+    baseline_grouped = create_ip_procedures_and_theatres_groupings(
+        ip_procedures_with_theatre_time
+    )
+    groupings_per_run = create_ip_procedures_and_theatres_groupings(
+        ip_procedures_with_theatre_time.drop("speldur", "classpat", "model_run").join(
             ip_model_results, on="rn", how="left"
         )
     )
@@ -196,8 +225,14 @@ def process_ip_theatres(
     required_ip_theatres_groupings = [
         grouping + "_unknown_time" for grouping in required_ip_theatres_groupings
     ]
+    required_ip_theatres_groupings += [
+        "interventional_radiology_procedure",
+        "cardiac_catheter_procedure",
+    ]
 
     final_df = add_missing_groupings(
-        final_groupings_per_run_with_baseline, required_ip_theatres_groupings
+        final_groupings_per_run_with_baseline,
+        required_ip_theatres_groupings,
+        grouping_col_name="procedure_grouping",
     )
     return final_df
