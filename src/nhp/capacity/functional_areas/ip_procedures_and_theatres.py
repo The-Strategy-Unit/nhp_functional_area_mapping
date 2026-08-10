@@ -13,6 +13,7 @@ from nhp.capacity.functional_areas.classifications import (
     class_elective,
     class_has_procedure,
     class_int_radiology,
+    class_maternity,
     class_non_elective,
     class_surgical,
 )
@@ -200,7 +201,9 @@ def process_ip_procedures_and_theatres(
     Returns:
         DataFrame: IP data for each of the model runs aggregated into functional areas for theatres
     """
-    ip_procedures_only = ip_original_mapped.filter(class_has_procedure())
+    ip_procedures_only = ip_original_mapped.filter(class_has_procedure()).filter(
+        ~class_maternity()
+    )
     ip_procedures_with_theatre_time = ip_procedures_only.join(
         theatre_times,
         ip_procedures_only["primary_procedure"] == theatre_times["opcs_code"],
