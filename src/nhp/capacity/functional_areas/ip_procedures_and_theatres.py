@@ -145,17 +145,14 @@ def build_ip_procedures_and_theatres_grouping_column():
     ).when(is_cardiac_catheter_procedure(), "cardiac_catheter_procedure")
 
     for label, predicate_fn in GROUPINGS:
-        when_chain = (
-            when_chain.when(
-                predicate_fn & is_unknown_time(),
-                f"{label}_unknown_time",
-            )
-            .when(
-                predicate_fn,
-                label,
-            )
-            .otherwise("unknown_procedure")
+        when_chain = when_chain.when(
+            predicate_fn & is_unknown_time(),
+            f"{label}_unknown_time",
+        ).when(
+            predicate_fn,
+            label,
         )
+    when_chain = when_chain.otherwise("unknown_procedure")
     return when_chain
 
 
