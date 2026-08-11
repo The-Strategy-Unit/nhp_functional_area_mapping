@@ -89,7 +89,7 @@ def is_paediatric_daycase_procedures() -> Column:
     return class_age_child() & class_daycase() & class_has_procedure()
 
 
-def is_cardiology():
+def is_cardiology_procedure():
     return class_cardiology() & class_has_procedure()
 
 
@@ -98,7 +98,7 @@ def is_catheter_procedure():
 
 
 def is_cardiac_catheter_procedure():
-    return is_cardiology() | is_catheter_procedure()
+    return is_cardiology_procedure() | is_catheter_procedure()
 
 
 def is_int_radiology_proc():
