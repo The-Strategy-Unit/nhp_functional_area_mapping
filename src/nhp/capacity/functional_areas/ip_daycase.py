@@ -1,7 +1,6 @@
 import pyspark.sql.functions as F
 from databricks.connect import DatabricksSession
 from pyspark.sql import DataFrame
-from pyspark.sql.column import Column
 
 from nhp.capacity.functional_areas.classifications import (
     class_age_adult,
@@ -10,6 +9,7 @@ from nhp.capacity.functional_areas.classifications import (
     class_elective,
     class_endoscopy,
     class_haem_onc,
+    class_has_procedure,
     class_medical,
     class_regular_day_night,
     class_renal,
@@ -19,11 +19,6 @@ from nhp.capacity.functional_areas.classifications import (
 from nhp.capacity.functional_areas.processing_helpers import add_missing_groupings
 
 spark = DatabricksSession.builder.getOrCreate()
-
-
-def class_has_procedure() -> Column:
-    # defined separately because col name differs between OP and IP
-    return F.col("has_procedure")
 
 
 def is_renal_elective():
