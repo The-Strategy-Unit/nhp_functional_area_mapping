@@ -157,7 +157,7 @@ def class_maternity() -> Column:
 
 
 def class_birth_event() -> Column:
-    return F.col("maternity_episode_type") == 1
+    return F.col("maternity_delivery_in_spell")
 
 
 def class_birth_normal() -> Column:
@@ -173,7 +173,7 @@ def class_birth_nonelective_c_section() -> Column:
 
 
 def class_no_birth_event() -> Column:
-    return ~class_birth_event()
+    return ~F.col("maternity_delivery_in_spell")
 
 
 def class_birth_elective_csection() -> Column:
